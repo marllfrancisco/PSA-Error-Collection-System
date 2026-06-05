@@ -16,6 +16,13 @@ and such
 # GUIDE TO MAKE PULL REQUEST 
 [delete this part later]
 
+## How to sync from github version to your local version
+Since 1 groupname made changes, lets sync it to our local version
+Also, this added guide must be synced in your local repository also
+
+From google:
+To sync a GitHub version to your local version in Visual Studio Code (VS Code), you can click the "Sync Changes" button in the Source Control panel. This action automatically runs a git pull followed by a git push to synchronize both environments.
+
 ## Changes vs Staged Changes in VS Code
 
 Think of Git as having **3 areas**:
