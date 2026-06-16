@@ -1,0 +1,9 @@
+report_id,discrepancy_id,explanation,error_field,original_value,revised_value,modified_by,modified_date
+26-04-12345,D-0200,incorrect order of birth,birth_order,3,1,EMP-005,5/20/2026 0:00:00
+26-04-12346,D-0201,incosistent date of registration,date_registration,11/13/2026,11/16/2026,EMP-006,5/21/2026 0:00:00
+26-04-12347,D-0202,outdated age,age,23,21,EMP-006,5/22/2026 0:00:00
+26-04-12348,D-0203,incorrect order of birth,birth_order,3,2,EMP-005,5/23/2026 0:00:00
+26-04-12349,D-0204,incorrect date of birth,date of birth,11/11/2005,12/11/2005,EMP-007,5/24/2026 0:00:00
+26-04-12350,D-0205,outdated age,applicant_age,58,59,EMP-007,5/25/2026 10:40:00
+26-04-12351,D-0206,incorrect name,spouse_name,"Liu, Rolan Pacio","Liu, Roland Pacio",EMP-008,5/26/2026 0:00:00
+26-04-12352,D-0207,inconsistent date of registration,date_regitration,22/10/2021,21/10/2021,EMP-007,5/27/2026 0:00:00
