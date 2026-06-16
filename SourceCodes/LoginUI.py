@@ -32,8 +32,7 @@ def verify_user_n_passcode():
         Password = user[2]
     
         #This checks if the username/email entered is in the list
-        if entered_username == Email or entered_username == Username: 
-            print("User is in the database")    
+        if entered_username == Email or entered_username == Username:
 
             #Checks if the password stare
             if entered_password == Password:
