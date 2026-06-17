@@ -27,18 +27,19 @@ login_frame.pack(fill="both", expand=True)
     #This is use for the log-in frame
 username_var = StringVar()
 password_var = StringVar()
-error_var = StringVar()
+login_error_var = StringVar()
     #This is use for the sign-up
 new_username_var = StringVar()
 new_email_var = StringVar()
 new_password_var = StringVar()
 confirm_new_password_var = StringVar()
+signup_error_var = StringVar()
 
 #Opens file or create a new one
 file_name = "accounts.json"
 if os.path.exists(file_name):
     with open(file_name, "r") as file:
-        entries = json.load(file)
+        database = json.load(file)
         #print("File loaded successfully")
 else:
     database = {
@@ -64,9 +65,9 @@ def verify_user_n_passcode():
             if entered_password == Password:
                 messagebox.showinfo("Success", "Log in successful")
             else:
-                error_var.set("Wrong Password")
+                login_error_var.set("Wrong Password")
             return
-    error_var.set("User not found")
+    login_error_var.set("User not found")
     
 #This changes the frame(or widgets) showing in the window
 def show_signup():
@@ -78,10 +79,32 @@ def show_login():
     login_frame.pack(fill="both", expand=True)
 
 def add_account():
-    print("YOOOOOOOOOOOOOOOOOO~~")
+    new_username: str = new_username_var.get()
+    new_email: str = new_email_var.get()
+    new_password: str = new_password_var.get()
+    confirm_password = confirm_new_password_var.get()
+    
+
+    if new_username == "" or new_email == "" or new_password == "":
+        signup_error_var.set("Some fields are blank. please fill them all")
+        return
+    
+    if new_password != confirm_password:
+        signup_error_var.set("Mismatched Passwords, try again")
+        return
+    
+    for username, data in database.items():
+        if new_email == data[0]:
+            signup_error_var.set("Email is already used in another account")
+            return
+        
+    print("Test Complete!")
 
 def record_accounts():
-    pass
+    with open(file_name, "w") as file:
+        json.dump(database, file, indent=4)
+        print("Account/s saved successfully")
+
 ########################     Log in Section       ####################################
 
 login_card = tb.Frame(login_frame, padding=25)
@@ -101,7 +124,7 @@ input_password = tb.Entry(login_card, textvariable=password_var, font=ourfont, w
 input_password.pack(pady=5, fill="x")
 
 # Error Messager
-error_label = tb.Label(login_card, textvariable=error_var, bootstyle="danger")
+error_label = tb.Label(login_card, textvariable=login_error_var, bootstyle="danger")
 error_label.pack()
 
 #confirm button
@@ -120,24 +143,27 @@ tb.Label(signup_card, text="User Sign-up", font=titlefont).pack(pady=(0, 15))
 
 # Takes the user's username
 tb.Label(signup_card, text="Enter Username", font=navfont).pack(anchor="w", pady=(5, 2))
-input_username = tb.Entry(signup_card, textvariable=new_username_var, font=ourfont, width=30)
-input_username.pack(pady=5, fill="x")
+input_new_username = tb.Entry(signup_card, textvariable=new_username_var, font=ourfont, width=30)
+input_new_username.pack(pady=5, fill="x")
 
 # Takes the user's username
 tb.Label(signup_card, text="Enter Email", font=navfont).pack(anchor="w", pady=(5, 2))
-input_username = tb.Entry(signup_card, textvariable=new_email_var, font=ourfont, width=30)
-input_username.pack(pady=5, fill="x")
+input_new_email = tb.Entry(signup_card, textvariable=new_email_var, font=ourfont, width=30)
+input_new_email.pack(pady=5, fill="x")
 
 # Takes the user's username
 tb.Label(signup_card, text="Enter Password", font=navfont).pack(anchor="w", pady=(5, 2))
-input_username = tb.Entry(signup_card, textvariable=new_password_var, font=ourfont, width=30)
-input_username.pack(pady=5, fill="x")
+input_new_password = tb.Entry(signup_card, textvariable=new_password_var, font=ourfont, width=30)
+input_new_password.pack(pady=5, fill="x")
 
 # Takes the user's username
 tb.Label(signup_card, text="Confirm Password", font=navfont).pack(anchor="w", pady=(5, 2))
-input_username = tb.Entry(signup_card, textvariable=confirm_new_password_var, font=ourfont, width=30)
-input_username.pack(pady=5, fill="x")
+input_confirm_password = tb.Entry(signup_card, textvariable=confirm_new_password_var, font=ourfont, width=30)
+input_confirm_password.pack(pady=5, fill="x")
 
+# Error Messager
+error_label = tb.Label(signup_card, textvariable=signup_error_var, bootstyle="danger")
+error_label.pack()
 
 #confirm button
 tb.Button(signup_card, text="Sign-up", bootstyle="primary", command=add_account, width=60, padding=10).pack(pady=5)
