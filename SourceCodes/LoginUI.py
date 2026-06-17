@@ -41,9 +41,10 @@ new_password_var = StringVar()
 confirm_new_password_var = StringVar()
 signup_error_var = StringVar()
     #this is use for forgetting password
-forget_username = StringVar()
-admin_password = StringVar()
-
+forget_username_var = StringVar()
+forget_new_password_var = StringVar()
+admin_password_var = StringVar()
+forget_error_var = StringVar()
 
 #Opens file or create a new one
 file_name = "accounts.json"
@@ -99,13 +100,10 @@ def add_account():
             signup_error_var.set("Email is already used in another account")
             return
         
-    confirm = messagebox.askyesno(
-    "Create Account",
-    "Do you want to create this account?"
-    )
+    confirm = messagebox.askyesno("Create Account", "Do you want to create this account?")
 
     if confirm:
-        print("Create account")
+        #print("Create account")
         database[new_username] = (new_email, new_password)
         #A popup for confirmation
         messagebox.showinfo(
@@ -115,6 +113,41 @@ def add_account():
         #brings you back to the login page
         show_login()
         record_accounts()
+
+def change_password():
+    forgotten_username = forget_username_var.get()
+    new_user_password = forget_new_password_var.get()
+    admin_passkey = admin_password_var.get()
+
+    #This checks if the username/email entered is in the list
+    for username, data in database.items():
+        email = data[0]
+
+        if forgotten_username == username or forgotten_username == email:
+
+            if admin_passkey != database["Admin"][1]:
+                forget_error_var.set("Wrong Admin Password")
+                return
+
+            confirm = messagebox.askyesno(
+                "Change Password",
+                f"Change password for '{username}'?"
+            )
+
+            if confirm:
+                database[username] = (email, new_user_password)
+                record_accounts()
+
+                messagebox.showinfo(
+                    "Success",
+                    "Password changed successfully!"
+                )
+
+                show_login()
+            return
+    forget_error_var.set("User not found")
+    
+
 
 def record_accounts():
     with open(file_name, "w") as file:
@@ -233,8 +266,25 @@ forget_card.place(relx=0.5, rely=0.5, anchor="center")
 tb.Label(forget_card, text="Forget Password", font=titlefont).pack(pady=(0, 15))
 
 tb.Label(forget_card, text="Enter Username", font=navfont).pack(anchor="w", pady=(5, 2))
-input_new_username = tb.Entry(forget_card, textvariable=forgot_username, font=ourfont, width=30)
-input_new_username.pack(pady=5, fill="x")
+input_forget_username = tb.Entry(forget_card, textvariable=forget_username_var, font=ourfont, width=30)
+input_forget_username.pack(pady=5, fill="x")
+
+tb.Label(forget_card, text="Enter new password", font=navfont).pack(anchor="w", pady=(5, 2))
+input_forget_username = tb.Entry(forget_card, textvariable=forget_new_password_var, font=ourfont, width=30)
+input_forget_username.pack(pady=5, fill="x")
+
+# Error Messager
+forget_error_label = tb.Label(forget_card, textvariable=forget_error_var, bootstyle="danger")
+forget_error_label.pack()
+
+
+# Takes the user's username
+tb.Label(forget_card, text="Enter Admin's Password", font=navfont).pack(anchor="w", pady=(5, 2))
+input_forget_admin_password = tb.Entry(forget_card, textvariable=admin_password_var, font=ourfont, width=30)
+input_forget_admin_password.pack(pady=5, fill="x")
+
+#confirm button
+tb.Button(forget_card, text="Change Password", bootstyle="primary", command=change_password, width=60, padding=10).pack(pady=5)
 
 #Back button
 tb.Button(forget_card, text="Back", bootstyle="secondary", command=show_login).pack(pady=5)
