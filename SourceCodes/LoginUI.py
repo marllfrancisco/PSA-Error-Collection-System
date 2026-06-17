@@ -111,6 +111,7 @@ tb.Button(login_card, text="Login", bootstyle="primary", command=verify_user_n_p
 tb.Button(login_card, text="Create Account", bootstyle="secondary", command=show_signup).pack(pady=5)
 
 ##################################  Sign up Section   ###############################################
+
 #Sign-up is still under construction
 signup_card = tb.Frame(signup_frame, padding=25)
 signup_card.place(relx=0.5, rely=0.5, anchor="center")
