@@ -46,9 +46,10 @@
 # DEFINED PREREQUISITES 
 from tkinter import *
 from tkinter import ttk
+import SysTheme as st
 
-titlefont = ("Arial", 18, 'bold')
-ourfont = ("Arial", 12)
+titlefont = st.titlefont
+ourfont = st.ourfont
 
 # padx & pady - spaces between widgets (x-axis or y-axis)
 
