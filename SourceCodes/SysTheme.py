@@ -30,6 +30,7 @@ psatheme = ThemeDefinition(
 
 # FONT HIERARCHY
 titlefont = ("Segoe UI", 25, 'bold')
+subtitlefont = ("Segoe UI", 15, 'bold')
 ourfont = ("Poppins", 15)
 navfont = ("Poppins", 12) # navigation links
 

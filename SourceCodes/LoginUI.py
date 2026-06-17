@@ -1,8 +1,13 @@
 import ttkbootstrap as tb
-from tkinter import StringVar, messagebox
-from SysTheme import psatheme, titlefont, ourfont, navfont
+from tkinter import StringVar, messagebox, PhotoImage
+from SysTheme import psatheme, titlefont, ourfont, navfont, subtitlefont
 import json
 import os
+
+try:
+    from PIL import Image, ImageTk
+except ImportError:
+    Image = ImageTk = None
 
 #Sets up the main window with ttkbootstrap
 frame = tb.Window()
@@ -10,7 +15,7 @@ frame.style.register_theme(psatheme)
 frame.style.theme_use("psa")
 
 # setting tkinter window size
-frame.geometry("%dx%d" % (500, 670))
+frame.geometry("%dx%d" % (600, 670))
 frame.title("DTBS Login")
 
 ###########################################################################
@@ -87,7 +92,26 @@ def record_accounts():
 login_card = tb.Frame(login_frame, padding=25)
 login_card.place(relx=0.5, rely=0.5, anchor="center")
 
-tb.Label(login_card, text="User Login", font=titlefont).pack(pady=(0, 15))
+# Logo image
+logo_path = os.path.join(os.path.dirname(__file__), "images/psa.png")
+logo_image = None
+logo_size = (120, 120)  # change to the desired logo size
+if os.path.exists(logo_path):
+    if Image is not None:
+        pil_logo = Image.open(logo_path).resize(logo_size, Image.LANCZOS)
+        logo_image = ImageTk.PhotoImage(pil_logo)
+    else:
+        logo_image = PhotoImage(file=logo_path)
+        # fallback: only shrink by integer factors if Pillow is unavailable
+        subsample_x = max(1, logo_image.width() // logo_size[0])
+        subsample_y = max(1, logo_image.height() // logo_size[1])
+        if subsample_x > 1 or subsample_y > 1:
+            logo_image = logo_image.subsample(subsample_x, subsample_y)
+    tb.Label(login_card, image=logo_image).pack(pady=(0, 15))
+
+# Login title
+tb.Label(login_card, text="Error Collection System", font=subtitlefont).pack(pady=(0, 14))
+tb.Label(login_card, text="User Login", font=titlefont).pack(pady=(0, 16))
 
 
 # Takes the username/email input
