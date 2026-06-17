@@ -1,38 +1,64 @@
-from tkinter import *
-from tkinter import messagebox
+import ttkbootstrap as tb
+from tkinter import StringVar, messagebox
+from SysTheme import psatheme, titlefont, ourfont, navfont
+import json
+import os
 
-frame = Tk()
-
-# getting screen width and height of display
-width = 400
-height = 200
+#Sets up the main window with ttkbootstrap
+frame = tb.Window()
+frame.style.register_theme(psatheme)
+frame.style.theme_use("psa")
 
 # setting tkinter window size
-frame.geometry("%dx%d" % (width, height))
+frame.geometry("%dx%d" % (500, 670))
 frame.title("DTBS Login")
 
-username_var = StringVar(value="Enter username")
-password_var = StringVar(value="Enter password")
-error_var = StringVar()
+###########################################################################
 
-database = {
-    1 : ("Admin@gmail.com", "Admin", "2UnlimitedDataWorks" ),
-    2 : ("YuushAris@gmail.com", "Arisu Tendou", "HerofTalesaga1"),
-    3 : ("GelSensei@gmail.com", "Michael Daitol", "1mgelodesu!")
-}
+#Frames for Log-in and Sign-up(Create Account)
+login_frame = tb.Frame(frame)
+signup_frame = tb.Frame(frame)
+
+#shows the login UI
+login_frame.pack(fill="both", expand=True)
+
+
+#Variables in this code
+    #This is use for the log-in frame
+username_var = StringVar()
+password_var = StringVar()
+error_var = StringVar()
+    #This is use for the sign-up
+new_username_var = StringVar()
+new_email_var = StringVar()
+new_password_var = StringVar()
+confirm_new_password_var = StringVar()
+
+#Opens file or create a new one
+file_name = "accounts.json"
+if os.path.exists(file_name):
+    with open(file_name, "r") as file:
+        entries = json.load(file)
+        #print("File loaded successfully")
+else:
+    database = {
+        "Admin" : ("Admin@gmail.com", "UnlimitedDataWorks" ),
+        "Michael Daitol" : ("GelSensei@gmail.com", "1mgelodesu!")
+    }
+
+###########################################################################
 
 #This verify the username and password inputted
 def verify_user_n_passcode():
     entered_username: str = input_username.get()
     entered_password: str = input_password.get()
 
-    for user in database.values():
-        Email = user[0]
-        Username = user[1]
-        Password = user[2]
+    for username, data in database.items():
+        Email = data[0]
+        Password = data[1]
     
         #This checks if the username/email entered is in the list
-        if entered_username == Email or entered_username == Username:
+        if entered_username == Email or entered_username == username:
 
             #Checks if the password stare
             if entered_password == Password:
@@ -42,56 +68,81 @@ def verify_user_n_passcode():
             return
     error_var.set("User not found")
     
-    
-#Main UI layout
-label = Label(frame, text="User login", font=("sans-serif", 24))
-label.pack()
+#This changes the frame(or widgets) showing in the window
+def show_signup():
+    login_frame.pack_forget()
+    signup_frame.pack(fill="both", expand=True)
+
+def show_login():
+    signup_frame.pack_forget()
+    login_frame.pack(fill="both", expand=True)
+
+def add_account():
+    print("YOOOOOOOOOOOOOOOOOO~~")
+
+def record_accounts():
+    pass
+########################     Log in Section       ####################################
+
+login_card = tb.Frame(login_frame, padding=25)
+login_card.place(relx=0.5, rely=0.5, anchor="center")
+
+tb.Label(login_card, text="User Login", font=titlefont).pack(pady=(0, 15))
 
 
 # Takes the username/email input
-input_username = Entry(frame, textvariable=username_var, font=("sans-serif", 14), fg="gray")
-input_username.pack()
-
-#This handle the display of 'Enter username' to show or not
-def on_focus_in(event):
-    if username_var.get() == "Enter username":
-        username_var.set("")
-        input_username.config(fg="black")
-
-def on_focus_out(event):
-    if username_var.get() == "":
-        username_var.set("Enter username")
-        input_username.config(fg="gray")
-
-input_username.bind("<FocusIn>", on_focus_in)
-input_username.bind("<FocusOut>", on_focus_out)
-
-
+tb.Label(login_card, text="Username / Email", font=navfont).pack(anchor="w", pady=(5, 2))
+input_username = tb.Entry(login_card, textvariable=username_var, font=ourfont, width=30)
+input_username.pack(pady=5, fill="x")
 
 #this takes the password input
-input_password = Entry(frame, textvariable=password_var, font=("sans-serif", 14), fg="gray")
-input_password.pack()
+tb.Label(login_card, text="Password", font=navfont).pack(anchor="w", pady=(10, 2))
+input_password = tb.Entry(login_card, textvariable=password_var, font=ourfont, width=30, show="*")
+input_password.pack(pady=5, fill="x")
 
-#This handle the display of 'Enter password' to show or not
-def passkey_focus_in(event):
-    if password_var.get() == "Enter password":
-        password_var.set("")
-        input_password.config(show="*", fg="black")
+# Error Messager
+error_label = tb.Label(login_card, textvariable=error_var, bootstyle="danger")
+error_label.pack()
 
-def passkey_focus_out(event):
-    if password_var.get() == "":
-        input_password.config(show="", fg="gray")
-        password_var.set("Enter password")
+#confirm button
+tb.Button(login_card, text="Login", bootstyle="primary", command=verify_user_n_passcode, width=60, padding=10).pack(pady=5)
 
-input_password.bind("<FocusIn>", passkey_focus_in)
-input_password.bind("<FocusOut>", passkey_focus_out)
+#Sign-up button
+tb.Button(login_card, text="Create Account", bootstyle="secondary", command=show_signup).pack(pady=5)
 
+##################################  Sign up Section   ###############################################
+#Sign-up is still under construction
+signup_card = tb.Frame(signup_frame, padding=25)
+signup_card.place(relx=0.5, rely=0.5, anchor="center")
+
+tb.Label(signup_card, text="User Sign-up", font=titlefont).pack(pady=(0, 15))
+
+# Takes the user's username
+tb.Label(signup_card, text="Enter Username", font=navfont).pack(anchor="w", pady=(5, 2))
+input_username = tb.Entry(signup_card, textvariable=new_username_var, font=ourfont, width=30)
+input_username.pack(pady=5, fill="x")
+
+# Takes the user's username
+tb.Label(signup_card, text="Enter Email", font=navfont).pack(anchor="w", pady=(5, 2))
+input_username = tb.Entry(signup_card, textvariable=new_email_var, font=ourfont, width=30)
+input_username.pack(pady=5, fill="x")
+
+# Takes the user's username
+tb.Label(signup_card, text="Enter Password", font=navfont).pack(anchor="w", pady=(5, 2))
+input_username = tb.Entry(signup_card, textvariable=new_password_var, font=ourfont, width=30)
+input_username.pack(pady=5, fill="x")
+
+# Takes the user's username
+tb.Label(signup_card, text="Confirm Password", font=navfont).pack(anchor="w", pady=(5, 2))
+input_username = tb.Entry(signup_card, textvariable=confirm_new_password_var, font=ourfont, width=30)
+input_username.pack(pady=5, fill="x")
 
 
 #confirm button
-Button(frame, text="    Sign in    ", command=verify_user_n_passcode).pack()
+tb.Button(signup_card, text="Sign-up", bootstyle="primary", command=add_account, width=60, padding=10).pack(pady=5)
 
-#Error message or something
-label = Label(frame, text=" ", textvariable=error_var, fg="red")
-label.pack()
+#Back button
+tb.Button(signup_card, text="Back", bootstyle="secondary", command=show_login).pack(pady=5)
+
+
 frame.mainloop()
