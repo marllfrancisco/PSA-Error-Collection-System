@@ -18,6 +18,7 @@ frame.title("DTBS Login")
 #Frames for Log-in and Sign-up(Create Account)
 login_frame = tb.Frame(frame)
 signup_frame = tb.Frame(frame)
+forget_frame = tb.Frame(frame)
 
 #shows the login UI
 login_frame.pack(fill="both", expand=True)
@@ -34,6 +35,10 @@ new_email_var = StringVar()
 new_password_var = StringVar()
 confirm_new_password_var = StringVar()
 signup_error_var = StringVar()
+    #this is use for forgetting password
+forget_username = StringVar()
+admin_password = StringVar()
+
 
 #Opens file or create a new one
 file_name = "accounts.json"
@@ -69,15 +74,6 @@ def verify_user_n_passcode():
             return
     login_error_var.set("User not found")
     
-#This changes the frame(or widgets) showing in the window
-def show_signup():
-    login_frame.pack_forget()
-    signup_frame.pack(fill="both", expand=True)
-
-def show_login():
-    signup_frame.pack_forget()
-    login_frame.pack(fill="both", expand=True)
-
 def add_account():
     new_username: str = new_username_var.get()
     new_email: str = new_email_var.get()
@@ -98,12 +94,45 @@ def add_account():
             signup_error_var.set("Email is already used in another account")
             return
         
-    print("Test Complete!")
+    confirm = messagebox.askyesno(
+    "Create Account",
+    "Do you want to create this account?"
+    )
+
+    if confirm:
+        print("Create account")
+        database[new_username] = (new_email, new_password)
+        #A popup for confirmation
+        messagebox.showinfo(
+            "Success",
+            "Account created successfully!"
+        )
+        #brings you back to the login page
+        show_login()
+        record_accounts()
 
 def record_accounts():
     with open(file_name, "w") as file:
         json.dump(database, file, indent=4)
         print("Account/s saved successfully")
+
+
+################This changes the frame(or widgets) showing in the window#####################
+
+def show_signup():
+    login_frame.pack_forget()
+    forget_frame.pack_forget()
+    signup_frame.pack(fill="both", expand=True)
+
+def show_login():
+    signup_frame.pack_forget()
+    forget_frame.pack_forget()
+    login_frame.pack(fill="both", expand=True)
+
+def show_forget():
+    login_frame.pack_forget()
+    signup_frame.pack_forget()
+    forget_frame.pack(fill="both", expand=True)
 
 ########################     Log in Section       ####################################
 
@@ -129,13 +158,14 @@ error_label.pack()
 
 #confirm button
 tb.Button(login_card, text="Login", bootstyle="primary", command=verify_user_n_passcode, width=60, padding=10).pack(pady=5)
-
 #Sign-up button
 tb.Button(login_card, text="Create Account", bootstyle="secondary", command=show_signup).pack(pady=5)
+#Forget button
+tb.Button(login_card, text="Forget Password?", bootstyle="secondary", command=show_forget).pack(pady=5)
+
 
 ##################################  Sign up Section   ###############################################
 
-#Sign-up is still under construction
 signup_card = tb.Frame(signup_frame, padding=25)
 signup_card.place(relx=0.5, rely=0.5, anchor="center")
 
@@ -146,7 +176,7 @@ tb.Label(signup_card, text="Enter Username", font=navfont).pack(anchor="w", pady
 input_new_username = tb.Entry(signup_card, textvariable=new_username_var, font=ourfont, width=30)
 input_new_username.pack(pady=5, fill="x")
 
-# Takes the user's username
+# Takes the user's email
 tb.Label(signup_card, text="Enter Email", font=navfont).pack(anchor="w", pady=(5, 2))
 input_new_email = tb.Entry(signup_card, textvariable=new_email_var, font=ourfont, width=30)
 input_new_email.pack(pady=5, fill="x")
@@ -170,6 +200,20 @@ tb.Button(signup_card, text="Sign-up", bootstyle="primary", command=add_account,
 
 #Back button
 tb.Button(signup_card, text="Back", bootstyle="secondary", command=show_login).pack(pady=5)
+
+
+#################################### Forget Password Page ############################
+forget_card = tb.Frame(forget_frame, padding=25)
+forget_card.place(relx=0.5, rely=0.5, anchor="center")
+
+tb.Label(forget_card, text="Forget Password", font=titlefont).pack(pady=(0, 15))
+
+tb.Label(forget_card, text="Enter Username", font=navfont).pack(anchor="w", pady=(5, 2))
+input_new_username = tb.Entry(forget_card, textvariable=forgot_username, font=ourfont, width=30)
+input_new_username.pack(pady=5, fill="x")
+
+#Back button
+tb.Button(forget_card, text="Back", bootstyle="secondary", command=show_login).pack(pady=5)
 
 
 frame.mainloop()
