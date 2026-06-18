@@ -2,7 +2,9 @@ import ttkbootstrap as tb
 from tkinter import StringVar, messagebox, PhotoImage
 from SysTheme import psatheme, titlefont, ourfont, navfont, subtitlefont
 import json
+import csv
 import os
+from datetime import datetime
 
 try:
     from PIL import Image, ImageTk
@@ -35,7 +37,7 @@ frame.title("PSA Error Collection")
 
 ###########################################################################
 
-#Frames for Log-in and Sign-up(Create Account)
+#Frames for Log-in and Sign-up(Create Account) and forget_frame
 login_frame = tb.Frame(frame)
 signup_frame = tb.Frame(frame)
 forget_frame = tb.Frame(frame)
@@ -45,12 +47,13 @@ login_frame.pack(fill="both", expand=True)
 
 
 #Variables in this code
+ADMIN_EMAIL = "admin@psa.gov.ph"
+ADMIN_PASSWORD = "UnlimitedDataWorks" #I am the bones of my code. keys is my body, 0 and 1s is my blood
     #This is use for the log-in frame
 username_var = StringVar()
 password_var = StringVar()
 login_error_var = StringVar()
     #This is use for the sign-up
-new_username_var = StringVar()
 new_email_var = StringVar()
 new_password_var = StringVar()
 confirm_new_password_var = StringVar()
@@ -60,97 +63,137 @@ forget_username_var = StringVar()
 forget_new_password_var = StringVar()
 admin_password_var = StringVar()
 forget_error_var = StringVar()
-
-#Opens file or create a new one
-file_name = "accounts.json"
-if os.path.exists(file_name):
-    with open(file_name, "r") as file:
-        database = json.load(file)
-        #print("File loaded successfully")
-else:
-    database = {
-        "Admin" : ("Admin@gmail.com", "UnlimitedDataWorks" ),
-        "Michael Daitol" : ("GelSensei@gmail.com", "1mgelodesu!")
-    }
+    #I dunno.... ahahaha
+file_name = "employee_data.csv"
+database = {}
 
 ###########################################################################
 
+def load_accounts():
+
+    accounts = {}
+
+    try:
+        with open(file_name, newline="", encoding="utf-8") as file:
+
+            reader = csv.DictReader(file)
+
+            for row in reader:
+
+                employee_id = row["employee_id"]
+
+                accounts[employee_id] = {
+                    "person_id": row["person_id"],
+                    "email": row["email"],
+                    "password": row["password"],
+                    "created_id": row["created_id"],
+                    "modified_id": row["modified_id"]
+                }
+
+    except FileNotFoundError:
+        print("employee_data.csv not found")
+
+    return accounts
+
 #This verify the username and password inputted
 def verify_user_n_passcode():
+    login_error_var.set("")
+
     entered_username: str = input_username.get()
     entered_password: str = input_password.get()
 
-    for username, data in database.items():
-        Email = data[0]
-        Password = data[1]
-    
-        #This checks if the username/email entered is in the list
-        if entered_username == Email or entered_username == username:
+    for employee_id, data in database.items():
+        if entered_username == data["email"]:
+            if entered_password == data["password"]:
 
-            #Checks if the password stare
-            if entered_password == Password:
-                messagebox.showinfo("Success", "Log in successful")
+                messagebox.showinfo(
+                    "Success",
+                    "Log in successful"
+                )
             else:
                 login_error_var.set("Wrong Password")
             return
-    login_error_var.set("User not found")
-    
+    login_error_var.set("User not found")    
+
 def add_account():
-    new_username: str = new_username_var.get()
+    signup_error_var.set("")
+
     new_email: str = new_email_var.get()
     new_password: str = new_password_var.get()
     confirm_password = confirm_new_password_var.get()
     
 
-    if new_username == "" or new_email == "" or new_password == "":
+    if new_email == "" or new_password == "":
         signup_error_var.set("Some fields are blank. please fill them all")
         return
     
+    if not new_email.endswith("@psa.gov.ph"):
+        signup_error_var.set("Only @psa.gov.ph emails are allowed.")
+        return
+
     if new_password != confirm_password:
         signup_error_var.set("Mismatched Passwords, try again")
         return
     
-    for username, data in database.items():
-        if new_email == data[0]:
-            signup_error_var.set("Email is already used in another account")
+    for data in database.values():
+        if new_email == data["email"]:
+            signup_error_var.set(
+                "Email already exists."
+            )
             return
+        
         
     confirm = messagebox.askyesno("Create Account", "Do you want to create this account?")
 
     if confirm:
-        #print("Create account")
-        database[new_username] = (new_email, new_password)
-        #A popup for confirmation
-        messagebox.showinfo(
-            "Success",
-            "Account created successfully!"
-        )
-        #brings you back to the login page
-        show_login()
+        employee_id = generate_employee_id()
+        person_id = generate_person_id()
+        created_date = get_current_date()
+
+        database[employee_id] = {
+            "person_id": person_id,
+            "email": new_email,
+            "password": new_password,
+            "created_id": created_date,
+            "modified_id": created_date
+        }
+
         record_accounts()
 
+        messagebox.showinfo(
+            "Success",
+            f"Account created.\nEmployee ID: {employee_id}"
+        )
+
+        show_login()
+
 def change_password():
-    forgotten_username = forget_username_var.get()
+    forget_error_var.set("")
+
+    forgotten_email = forget_username_var.get()
     new_user_password = forget_new_password_var.get()
     admin_passkey = admin_password_var.get()
 
-    #This checks if the username/email entered is in the list
-    for username, data in database.items():
-        email = data[0]
+    if admin_passkey != ADMIN_PASSWORD:
+        forget_error_var.set(
+            "Wrong Admin Password"
+        )
+        return
+    
+    for employee_id, data in database.items():
 
-        if forgotten_username == username or forgotten_username == email:
-
-            if admin_passkey != database["Admin"][1]:
-                forget_error_var.set("Wrong Admin Password")
-                return
+        if forgotten_email == data["email"]:
 
             confirm = messagebox.askyesno(
                 "Change Password",
-                f"Change password for '{username}'?"
+                f"Change password for '{employee_id}'?"
             )
 
             if confirm:
-                database[username] = (email, new_user_password)
+
+                data["password"] = new_user_password
+                data["modified_id"] = get_current_date()
+
                 record_accounts()
 
                 messagebox.showinfo(
@@ -159,18 +202,73 @@ def change_password():
                 )
 
                 show_login()
+
             return
+
     forget_error_var.set("User not found")
     
+def generate_employee_id():
+    if not database:
+        return "EMP-001"
 
+    last_id = max(
+        int(emp_id.split("-")[1])
+        for emp_id in database
+    )
+
+    return f"EMP-{last_id + 1:03d}"
+
+def generate_person_id():
+
+    if not database:
+        return "P-10001"
+
+    last_id = max(
+        int(data["person_id"].split("-")[1])
+        for data in database.values()
+    )
+
+    return f"P-{last_id + 1}"
+
+def get_current_date():
+
+    return datetime.now().strftime("%m/%d/%Y")
 
 def record_accounts():
-    with open(file_name, "w") as file:
-        json.dump(database, file, indent=4)
-        print("Account/s saved successfully")
+    with open(file_name, "w", newline="", encoding="utf-8") as file:
+
+        fieldnames = [
+            "employee_id",
+            "person_id",
+            "email",
+            "password",
+            "created_id",
+            "modified_id"
+        ]
+
+        writer = csv.DictWriter(
+            file,
+            fieldnames=fieldnames
+        )
+
+        writer.writeheader()
+
+        for employee_id, data in database.items():
+
+            writer.writerow({
+                "employee_id": employee_id,
+                "person_id": data["person_id"],
+                "email": data["email"],
+                "password": data["password"],
+                "created_id": data["created_id"],
+                "modified_id": data["modified_id"]
+            })
 
 
 ################This changes the frame(or widgets) showing in the window#####################
+
+#First, let's load the file
+database = load_accounts()
 
 def show_signup():
     login_frame.pack_forget()
@@ -215,7 +313,7 @@ tb.Label(login_card, text="User Login", font=titlefont).pack(pady=(0, 16))
 
 
 # Takes the username/email input
-tb.Label(login_card, text="Username / Email", font=navfont).pack(anchor="w", pady=(5, 2))
+tb.Label(login_card, text="Email", font=navfont).pack(anchor="w", pady=(5, 2))
 input_username = tb.Entry(login_card, textvariable=username_var, font=ourfont, width=30)
 input_username.pack(pady=5, fill="x")
 
@@ -243,24 +341,19 @@ signup_card.place(relx=0.5, rely=0.5, anchor="center")
 
 tb.Label(signup_card, text="User Sign-up", font=titlefont).pack(pady=(0, 15))
 
-# Takes the user's username
-tb.Label(signup_card, text="Enter Username", font=navfont).pack(anchor="w", pady=(5, 2))
-input_new_username = tb.Entry(signup_card, textvariable=new_username_var, font=ourfont, width=30)
-input_new_username.pack(pady=5, fill="x")
-
 # Takes the user's email
 tb.Label(signup_card, text="Enter Email", font=navfont).pack(anchor="w", pady=(5, 2))
 input_new_email = tb.Entry(signup_card, textvariable=new_email_var, font=ourfont, width=30)
 input_new_email.pack(pady=5, fill="x")
 
-# Takes the user's username
+# Takes the user's password
 tb.Label(signup_card, text="Enter Password", font=navfont).pack(anchor="w", pady=(5, 2))
-input_new_password = tb.Entry(signup_card, textvariable=new_password_var, font=ourfont, width=30)
+input_new_password = tb.Entry(signup_card, textvariable=new_password_var, font=ourfont, width=30, show="*")
 input_new_password.pack(pady=5, fill="x")
 
-# Takes the user's username
+# reconfirm password
 tb.Label(signup_card, text="Confirm Password", font=navfont).pack(anchor="w", pady=(5, 2))
-input_confirm_password = tb.Entry(signup_card, textvariable=confirm_new_password_var, font=ourfont, width=30)
+input_confirm_password = tb.Entry(signup_card, textvariable=confirm_new_password_var, font=ourfont, width=30, show="*")
 input_confirm_password.pack(pady=5, fill="x")
 
 # Error Messager
@@ -280,12 +373,12 @@ forget_card.place(relx=0.5, rely=0.5, anchor="center")
 
 tb.Label(forget_card, text="Forget Password", font=titlefont).pack(pady=(0, 15))
 
-tb.Label(forget_card, text="Enter Username", font=navfont).pack(anchor="w", pady=(5, 2))
+tb.Label(forget_card, text="Enter Email", font=navfont).pack(anchor="w", pady=(5, 2))
 input_forget_username = tb.Entry(forget_card, textvariable=forget_username_var, font=ourfont, width=30)
 input_forget_username.pack(pady=5, fill="x")
 
 tb.Label(forget_card, text="Enter new password", font=navfont).pack(anchor="w", pady=(5, 2))
-input_forget_username = tb.Entry(forget_card, textvariable=forget_new_password_var, font=ourfont, width=30)
+input_forget_username = tb.Entry(forget_card, textvariable=forget_new_password_var, font=ourfont, width=30, show="*")
 input_forget_username.pack(pady=5, fill="x")
 
 # Error Messager
