@@ -3,8 +3,8 @@ import mysql.connector
 from mysql.connector import Error
 import ttkbootstrap as tb  
 from ttkbootstrap.constants import *
+from ttkbootstrap.widgets.tableview import Tableview  
 from tkinter import messagebox
-import uuid  # Imported to generate unique IDs for VARCHAR(20) primary keys
 
 # ==========================================
 # DATABASE CONNECTION SETUP
@@ -18,6 +18,18 @@ DB_CONFIG = {
 
 ACTIVE_EMPLOYEE_ID = 1 
 
+c_dis_entry_audit = [
+    {"text": "Report ID", "stretch": True},
+    {"text": "Cert Type", "stretch": True},
+    {"text": "Error Field", "stretch": True},
+    {"text": "Original Value", "stretch": True},
+    {"text": "Revised Value", "stretch": True},
+    {"text": "Modified By", "stretch": True}
+]
+
+current_active_page_ref = None
+all_fetched_audit_rows = []  
+
 def get_db_connection():
     try:
         connection = mysql.connector.connect(**DB_CONFIG)
@@ -26,6 +38,28 @@ def get_db_connection():
     except Error as e:
         messagebox.showerror("Database Error", f"Could not connect to MySQL Database:\n{e}")
         return None
+
+def fetch_latest_audit_rows():
+    conn = get_db_connection()
+    if not conn:
+        return []
+    
+    cursor = conn.cursor()
+    try:
+        query = """
+            SELECT report_id, cert_type, error_field, original_value, revised_value, modified_by 
+            FROM discrepancy_entries 
+            ORDER BY report_id DESC
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        return rows
+    except Error as e:
+        messagebox.showerror("Database Query Error", f"Failed to retrieve audit log metrics:\n{e}")
+        return []
+    finally:
+        cursor.close()
+        conn.close()
 
 # ==========================================
 # GUI MAIN APPLICATION INITIALIZATION
@@ -38,20 +72,192 @@ root.geometry("%dx%d" % (width, height))
 root.title("PSA Error Collection System")
 root.state('zoomed') 
 
+# COLOR SCHEME CONFIGURATION
+PSA_BLUE = "#4d73ff"
+PSA_HEADER_BLUE = "#0066cc"
+
 DEFAULT_TITLE_SIZE = 25
 DEFAULT_BODY_SIZE = 11
+MAX_IMAGE_TABLE_SIZE = 11  
 
 font_size_title = DEFAULT_TITLE_SIZE
 font_size_default = DEFAULT_BODY_SIZE
+font_size_table = MAX_IMAGE_TABLE_SIZE  
+
+certType = None
+cert_choice = ""
+
+# Form entries
+death_regEntry = None
+death_nameEntry = None
+death_errorType = None
+origEntry = None
+newEntry = None
+explain = None
+
+birth_regEntry = None
+youEntry = None
+momEntry = None
+dadEntry = None
+birth_errorType = None
+borigEntry = None
+bnewEntry = None
+bexplain = None
+
+marriage_regEntry = None
+marriage_errorType = None
+applicantEntry = None  
+morigEntry = None
+mnewEntry = None
+mexplainEntry = None
+
+
+# =====================================================================
+# CUSTOM LIFTED ROUNDED CARD BUTTON COMPONENT
+# =====================================================================
+class LiftedRoundedButton(tb.Canvas):
+    def __init__(self, parent, text, image, command, compound="top", variant="default", **kwargs):
+        current_theme_bg = tb.Style().lookup("TFrame", "background") or "#fcfbfa"
+        
+        super().__init__(parent, highlightthickness=0, bg=current_theme_bg, **kwargs)
+        self.text = text
+        self.image = image
+        self.command = command
+        self.compound = compound
+        self.variant = variant  # Options: "default", "accent", "primary", "danger", "grey_button"
+        
+        self.bind("<Configure>", self.draw_card)
+        self.bind("<ButtonPress-1>", self.on_press)
+        self.bind("<ButtonRelease-1>", self.on_release)
+        self.bind("<Enter>", self.on_hover)
+        self.bind("<Leave>", self.on_leave)
+        
+        self.pressed = False
+        self.hovered = False
+
+    def draw_card(self, event=None):
+        self.delete("all")
+        w = self.winfo_width()
+        h = self.winfo_height()
+        if w < 10 or h < 10:
+            return
+
+        radius = 35  
+        
+        # Color palettes based on specialized UI context paths
+        if self.variant == "accent":
+            face_normal = "#2c3e50"
+            face_hover = "#1a252f"
+            text_color = "#ffffff"
+            shadow_color = "#111111" if not self.pressed else "#000000"
+        elif self.variant == "primary":
+            face_normal = "#0066cc"
+            face_hover = "#004ca3"
+            text_color = "#ffffff"
+            shadow_color = "#111111" if not self.pressed else "#000000"
+        elif self.variant == "danger":
+            face_normal = "#d9534f"
+            face_hover = "#c9302c"
+            text_color = "#ffffff"
+            shadow_color = "#111111" if not self.pressed else "#000000"
+        elif self.variant == "grey_button":
+            # Distinct, clean premium grey buttons for entry pathways
+            face_normal = "#d6d4d0"
+            face_hover = "#bebbb7"
+            text_color = "#2b2a29"
+            shadow_color = "#444444" if not self.pressed else "#222222"
+        else: # Default style
+            face_normal = "#eae8e5"
+            face_hover = "#dfdedb"
+            text_color = "#000000"
+            shadow_color = "#555555" if not self.pressed else "#333333"
+        
+        current_theme_bg = tb.Style().lookup("TFrame", "background") or "#fcfbfa"
+        self.configure(bg=current_theme_bg)
+        
+        if not self.pressed:
+            shadow_offset = 6
+            card_offset = 0
+        else:
+            shadow_offset = 2
+            card_offset = 4
+
+        # Drop Shadows
+        sx1, sy1 = 5, 5 + shadow_offset
+        sx2, sy2 = w - 5, h - 5 + shadow_offset
+        self.create_rounded_rect(sx1, sy1, sx2, sy2, radius, fill=shadow_color, outline="")
+
+        # Button Core Face Elements
+        cx1, cy1 = 5, 5 + card_offset
+        cx2, cy2 = w - 5, h - 5 + card_offset
+        face_fill = face_hover if (self.hovered and not self.pressed) else face_normal
+        self.create_rounded_rect(cx1, cy1, cx2, cy2, radius, fill=face_fill, outline="", width=3)
+
+        center_x = (cx1 + cx2) / 2
+        center_y = (cy1 + cy2) / 2
+
+        if self.image:
+            if self.compound == "top":
+                self.create_image(center_x, center_y - 25, image=self.image)
+                self.create_text(center_x, center_y + 35, text=self.text, font=("Helvetica", 16, "bold"), fill=text_color, justify=CENTER)
+            else:
+                self.create_image(center_x - 75, center_y, image=self.image)
+                self.create_text(center_x + 35, center_y, text=self.text, font=("Helvetica", 16, "bold"), fill=text_color, justify=LEFT)
+        else:
+            self.create_text(center_x, center_y, text=self.text, font=("Helvetica", 16, "bold"), fill=text_color, justify=CENTER)
+
+    def create_rounded_rect(self, x1, y1, x2, y2, r, **kwargs):
+        points = [
+            x1+r, y1, x1+r, y1, x2-r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y1+r,
+            x2, y2-r, x2, y2-r, x2, y2, x2-r, y2, x2-r, y2, x1+r, y2, x1+r, y2,
+            x1, y2, x1, y2-r, x1, y2-r, x1, y1+r, x1, y1+r, x1, y1
+        ]
+        return self.create_polygon(points, smooth=True, **kwargs)
+
+    def on_press(self, event):
+        self.pressed = True
+        self.draw_card()
+
+    def on_release(self, event):
+        if self.pressed:
+            self.pressed = False
+            self.draw_card()
+            if 0 <= event.x <= self.winfo_width() and 0 <= event.y <= self.winfo_height():
+                if self.command:
+                    self.command()
+
+    def on_hover(self, event):
+        self.hovered = True
+        self.draw_card()
+
+    def on_leave(self, event):
+        self.hovered = False
+        self.pressed = False
+        self.draw_card()
+
 
 def apply_font_sizes():
-    Title.config(font=("Helvetica", font_size_title))
+    global current_active_page_ref, font_size_default, font_size_table
+    Title.config(font=("Times New Roman", font_size_title)) # Removed Bold weight specification
+    
     style = tb.Style()
     style.configure('.', font=("Helvetica", font_size_default))          
     style.configure('TLabel', font=("Helvetica", font_size_default))     
-    style.configure('TButton', font=("Helvetica", font_size_default))    
     style.configure('TEntry', font=("Helvetica", font_size_default))     
     style.configure('TCombobox', font=("Helvetica", font_size_default))  
+    
+    calculated_rowheight = int(font_size_table * 2.8)
+    style.configure('Treeview', font=("Helvetica", font_size_table), rowheight=calculated_rowheight)
+    style.configure('Treeview.Heading', font=("Helvetica", font_size_table, "bold"))
+
+    if current_active_page_ref and hasattr(current_active_page_ref, 'dv'):
+        try:
+            current_active_page_ref.dv.view.configure(font=("Helvetica", font_size_table))
+            current_active_page_ref.dv.update_idletasks()
+            current_active_page_ref.dv.autofit_columns()
+            current_active_page_ref.dv.autoalign_columns()
+        except:
+            pass
 
 def increase_font():
     global font_size_title, font_size_default
@@ -60,36 +266,65 @@ def increase_font():
         font_size_default += 2
         apply_font_sizes()
     else:
-        messagebox.showinfo("Font Limit", "Maximum font size reached.")
+        messagebox.showinfo("Font Limit", "Maximum text font size reached.")
 
 def decrease_font():
-    global font_size_title, font_size_default
+    global font_size_default, font_size_title
     if font_size_default > 8:  
         font_size_title -= 2
         font_size_default -= 2
         apply_font_sizes()
     else:
-        messagebox.showinfo("Font Limit", "Minimum font size reached.")
+        messagebox.showinfo("Font Limit", "Minimum text font size reached.")
+
+def increase_table_font():
+    global font_size_table
+    if font_size_table < MAX_IMAGE_TABLE_SIZE:
+        font_size_table += 1
+        apply_font_sizes()
+    else:
+        messagebox.showinfo("Font Limit", "Maximum allowed table font size reached.")
+
+def decrease_table_font():
+    global font_size_table
+    if font_size_table > 7:
+        font_size_table -= 1
+        apply_font_sizes()
+    else:
+        messagebox.showinfo("Font Limit", "Minimum table font size reached.")
 
 def reset_settings():
-    global font_size_title, font_size_default
+    global font_size_title, font_size_default, font_size_table
     font_size_title = DEFAULT_TITLE_SIZE
     font_size_default = DEFAULT_BODY_SIZE
+    font_size_table = MAX_IMAGE_TABLE_SIZE
     root.style.theme_use("flatly")
     apply_font_sizes()
     messagebox.showinfo("Reset Successful", "Accessibility changes have been restored to default values.")
 
-# Application Top Banner Header
-Title = tb.Label(root, text="PSA Error Collection System", font=("Helvetica", font_size_title), bootstyle="inverse-primary", anchor="center")
-Title.pack(pady=20, fill="x")
+# --- LOAD HEADER LOGO IMAGE ---
+try:
+    raw_logo = tb.PhotoImage(file="/Users/mac/Desktop/system_image/psalogo.png")
+    logo_image = raw_logo.subsample(3, 3) 
+except Exception as e:
+    print(f"Warning: Main header logo image could not be loaded. Details: {e}")
+    logo_image = None
 
-# Dynamic Central Content Container Frame
+Title = tb.Label(
+    root, 
+    text="  REPUBLIC OF THE PHILIPPINES\n  PHILIPPINE STATISTICS AUTHORITY", 
+    font=("Times New Roman", font_size_title), # Removed bold assignment configuration
+    background=PSA_HEADER_BLUE,
+    foreground="white",
+    anchor="w",
+    image=logo_image,
+    compound="left",        
+    padding=(30, 20)        
+)
+Title.pack(fill="x")
+
 content_frame = tb.Frame(root, padding=20)
 content_frame.pack(expand=True, fill="both")
-
-cert_choice = ""
-LABEL_WIDTH = 25  
-ENTRY_WIDTH = 40  
 
 def update_entry(event):
     global cert_choice
@@ -111,135 +346,46 @@ def greymode():
 # TRANSITION ANIMATION ENGINE
 # ==========================================
 def navigate_to(screen_drawing_function, *args, **kwargs):
-    """
-    Clears the container frame, creates a brief visual processing pause 
-    using a micro-delay, and then safely loads the next destination layout.
-    """
-    # Step 1: Wipe current view content immediately 
+    global current_active_page_ref
+    current_active_page_ref = None  
+    
     for widget in content_frame.winfo_children():
         widget.destroy()
         
-    # Step 2: Render a brief stylized status message or placeholder
     loading_lbl = tb.Label(content_frame, text="Loading interface context...", font=("Helvetica", 12, "italic"), bootstyle="secondary")
     loading_lbl.pack(expand=True)
     
-    # Step 3: Run safe asynchronous mainloop schedule drop to prevent UI freezing
     root.after(250, lambda: execution_wrap(loading_lbl, screen_drawing_function, *args, **kwargs))
 
 def execution_wrap(loader_widget, target_function, *args, **kwargs):
-    """Removes the loading notice and renders the next frame setup securely."""
     loader_widget.destroy()
     target_function(*args, **kwargs)
 
-def fetch_all_results():
-    conn = get_db_connection()
-    if not conn:
-        return []
-    
-    cursor = conn.cursor(dictionary=True)
-    try:
-        query = """
-            SELECT dr.report_id, dr.registry_number, dr.status, de.cert_type, de.explanation, de.error_field, de.original_value, de.revised_value
-            FROM discrepancy_report dr
-            JOIN discrepancy_entries de ON dr.report_id = de.report_id
-            ORDER BY dr.report_id DESC
-        """
-        cursor.execute(query)
-        return cursor.fetchall()
-    except Error as e:
-        messagebox.showerror("Database Error", f"Error fetching results:\n{e}")
-        return []
-    finally:
-        cursor.close()
-        conn.close()
-
-def results_panel_screen(post_entry=False):
-    container = tb.Frame(content_frame, padding=30)
-    container.pack(expand=True, fill="both")
-
-    lbl_header = tb.Label(container, text="All Reported Discrepancies", font=("Helvetica", 16, "bold"), anchor="center")
-    lbl_header.pack(fill="x", pady=(0, 20))
-
-    # Use a Treeview for the results panel
-    columns = ("id", "reg", "type", "field", "original", "revised", "status")
-    tree = tb.Treeview(container, columns=columns, show="headings", bootstyle="primary")
-    
-    tree.heading("id", text="Report ID")
-    tree.heading("reg", text="Registry No")
-    tree.heading("type", text="Cert Type")
-    tree.heading("field", text="Error Field")
-    tree.heading("original", text="Original")
-    tree.heading("revised", text="Revised")
-    tree.heading("status", text="Status")
-
-    tree.column("id", width=100)
-    tree.column("reg", width=100)
-    tree.column("type", width=100)
-    tree.column("field", width=120)
-    tree.column("original", width=120)
-    tree.column("revised", width=120)
-    tree.column("status", width=80)
-
-    results = fetch_all_results()
-    cert_type_reverse_map = {1: "Birth", 2: "Marriage", 3: "Death"}
-
-    for row in results:
-        tree.insert("", "end", values=(
-            row['report_id'], 
-            row['registry_number'], 
-            cert_type_reverse_map.get(row['cert_type'], "Unknown"), 
-            row['error_field'], 
-            row['original_value'], 
-            row['revised_value'], 
-            row['status']
-        ))
-
-    tree.pack(expand=True, fill="both", pady=10)
-
-    btn_row = tb.Frame(container)
-    btn_row.pack(fill="x", pady=20)
-    
-    if post_entry:
-        enter_another_but = tb.Button(btn_row, text="Enter another entry", command=lambda: navigate_to(entry_system_screen), bootstyle="success")
-        enter_another_but.pack(side=LEFT, padx=10, expand=True)
-        back_but = tb.Button(btn_row, text="Return to main menu", command=lambda: navigate_to(main_menu_screen), bootstyle="danger")
-        back_but.pack(side=LEFT, padx=10, expand=True)
-    else:
-        back_but = tb.Button(btn_row, text="Back to Main Menu", command=lambda: navigate_to(main_menu_screen), bootstyle="danger")
-        back_but.pack(side=LEFT, padx=10, expand=True)
-
+# ==========================================
+# SQL PERSISTENCE LOGIC
+# ==========================================
 def save_discrepancy_to_db(registry_num, error_type, explanation, field_name, original_val, revised_val):
     conn = get_db_connection()
     if not conn:
         return False
     
-    # Using buffered=True prevents the "Unread result found" error entirely
     cursor = conn.cursor(buffered=True)
     try:
-        # Generate random unique 20-character strings for your VARCHAR schema IDs
-        report_id = str(uuid.uuid4())[:20]
-        discrepancy_id = str(uuid.uuid4())[:20]
-
-        # 1. Insert into discrepancy_report (Matches DB Dump table name exactly)
+        report_id = None
         report_query = """
             INSERT INTO discrepancy_report (report_id, employee_id, registry_number, status) 
             VALUES (%s, %s, %s, 'PENDING')
         """
         cursor.execute(report_query, (report_id, ACTIVE_EMPLOYEE_ID, registry_num))
 
-        # Map certificate types to matches: 1=Birth, 2=Marriage, 3=Death
         global cert_choice
-        cert_type_map = {"Birth Certificate": 1, "Marriage Certificate": 2, "Death Certificate": 3}
-        current_cert_type = cert_type_map.get(cert_choice, 1)
+        current_cert_type = cert_choice if cert_choice else "Birth Certificate"
 
-        # 2. Insert into discrepancy_entries (Matches DB Dump table name and 'error_field' column)
         entry_query = """
-            INSERT INTO discrepancy_entries (discrepancy_id, report_id, cert_type, explanation, error_field, original_value, revised_value, modified_by)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO discrepancy_entries (report_id, cert_type, explanation, error_field, original_value, revised_value, modified_by)
+            VALUES ((SELECT MAX(report_id) FROM discrepancy_report), %s, %s, %s, %s, %s, %s)
         """
         cursor.execute(entry_query, (
-            discrepancy_id, 
-            report_id, 
             current_cert_type, 
             explanation, 
             field_name, 
@@ -259,44 +405,19 @@ def save_discrepancy_to_db(registry_num, error_type, explanation, field_name, or
         conn.close()
 
 # ==========================================
-# FORM CONFIRMATION WINDOW LAYOUTS (IN-PLACE)
-# ==========================================
-def show_confirmation_screen(title_text, summary_data):
-    container = tb.Frame(content_frame, padding=30)
-    container.pack(expand=True)
-
-    lbl_header = tb.Label(container, text=title_text, font=("Helvetica", 14, "bold"), anchor="w")
-    lbl_header.pack(fill="x", pady=(0, 15))
-
-    for label_text, entry_val in summary_data:
-        row = tb.Frame(container)
-        row.pack(fill="x", pady=5)
-        lbl = tb.Label(row, text=label_text, width=LABEL_WIDTH, anchor="w")
-        ent = tb.Entry(row, width=ENTRY_WIDTH)
-        lbl.pack(side=LEFT)
-        ent.pack(side=LEFT, fill="x", expand=True)
-        ent.insert(0, entry_val)
-        ent.config(state=DISABLED)
-
-    btn_row = tb.Frame(container)
-    btn_row.pack(fill="x", pady=20)
-    
-    close_but = tb.Button(btn_row, text="Back to Home", command=lambda: navigate_to(main_menu_screen), bootstyle="danger")
-    close_but.pack(side=LEFT, padx=10, expand=True)
-    
-    new_button = tb.Button(btn_row, text="New Entry", command=lambda: navigate_to(entry_system_screen), bootstyle="success")
-    new_button.pack(side=LEFT, padx=10, expand=True)
-
-# ==========================================
 # FORM SUBMISSIONS & VALIDATIONS
 # ==========================================
 def death_confirm():
+    global death_regEntry, death_nameEntry, death_errorType, origEntry, newEntry, explain
     reg_pattern = r"^\d{4}-\d{7}$"
     if death_regEntry.get() == "":
         messagebox.showerror("Error", "Please input the proper Registration Number (ex. YYYY-XXXXXXX).")
         return
     elif not re.match(reg_pattern, death_regEntry.get()):
         messagebox.showerror("Error", "Invalid format! Registration Number must follow YYYY-XXXXXXX (e.g., 2026-1234567).")
+        return
+    elif death_nameEntry.get() == "":
+        messagebox.showerror("Error", "Please specify the deceased individual's Name.")
         return
     elif death_errorType.get().strip() == "":
         messagebox.showerror("Error", "Please specify an error type.")
@@ -322,11 +443,13 @@ def death_confirm():
             revised_val=newEntry.get()
         )
         if success:
-            navigate_to(results_panel_screen, post_entry=True)
+            messagebox.showinfo("Success", "Data successfully saved to MySQL database!")
+            navigate_to(call_audit_logs_view, show_enter_new=True)
     else:
         messagebox.showinfo("Cancelled Input", "Your Entry has been Cancelled.")
 
 def birth_confirm():
+    global birth_regEntry, birth_errorType, youEntry, momEntry, dadEntry, borigEntry, bnewEntry, bexplain
     reg_pattern = r"^\d{4}-\d{7}$"
     if birth_regEntry.get() == "":
         messagebox.showerror("Error", "Please input the proper Registration Number (ex. YYYY-XXXXXXX).")
@@ -367,11 +490,13 @@ def birth_confirm():
             revised_val=bnewEntry.get()
         )
         if success:
-            navigate_to(results_panel_screen, post_entry=True)
+            messagebox.showinfo("Success", "Data successfully saved to MySQL database!")
+            navigate_to(call_audit_logs_view, show_enter_new=True)
     else:
         messagebox.showinfo("Cancelled Input", "Your Entry has been Cancelled.")
 
 def marriage_confirm():
+    global marriage_regEntry, marriage_errorType, applicantEntry, morigEntry, mnewEntry, mexplainEntry
     reg_pattern = r"^\d{4}-\d{7}$"
     if marriage_regEntry.get() == "":
         messagebox.showerror("Error", "Please input the proper Registration Number (ex. YYYY-XXXXXXX).")
@@ -381,6 +506,9 @@ def marriage_confirm():
         return
     elif marriage_errorType.get().strip() == "":
         messagebox.showerror("Error", "Please specify an error type.")
+        return
+    elif applicantEntry.get() == "":  
+        messagebox.showerror("Error", "Please specify the applicant's name.")
         return
     elif morigEntry.get() == "":
         messagebox.showerror("Error", "Please specify the erroneous value.")
@@ -403,203 +531,146 @@ def marriage_confirm():
             revised_val=mnewEntry.get()
         )
         if success:
-            navigate_to(results_panel_screen, post_entry=True)
+            messagebox.showinfo("Success", "Data successfully saved to MySQL database!")
+            navigate_to(call_audit_logs_view, show_enter_new=True)
     else:
         messagebox.showinfo("Cancelled Input", "Your Entry has been Cancelled.")
 
-# ==========================================
-# CENTRALIZED SCREEN DRAWING CONTROLLERS
-# ==========================================
+# =====================================================================
+# CENTRALIZED SCREEN DRAWING CONTROLLERS (PROPORTIONATE SCALE MODES)
+# =====================================================================
 def birth_cert_screen():
+    global birth_regEntry, youEntry, momEntry, dadEntry, birth_errorType, borigEntry, bnewEntry, bexplain
     container = tb.Frame(content_frame, padding=30)
-    container.pack(expand=True)
+    container.pack(expand=True, fill="both")
+    container.columnconfigure(1, weight=1)
 
-    row1 = tb.Frame(container)
-    row1.pack(fill="x", pady=5)
-    global birth_regEntry
-    birth_reg = tb.Label(row1, text="Registry Number: ", width=LABEL_WIDTH, anchor="w")
-    birth_regEntry = tb.Entry(row1, width=ENTRY_WIDTH)
-    birth_reg.pack(side=LEFT)
-    birth_regEntry.pack(side=LEFT, fill="x", expand=True)
+    # Grid structured rows replace old pack spacing to maximize proportional layout
+    tb.Label(container, text="Registry Number: ", anchor="w").grid(row=0, column=0, sticky="w", pady=8, padx=10)
+    birth_regEntry = tb.Entry(container)
+    birth_regEntry.grid(row=0, column=1, sticky="ew", pady=8, padx=10)
 
-    row2 = tb.Frame(container)
-    row2.pack(fill="x", pady=5)
-    global youEntry
-    youTitle = tb.Label(row2, text="Name: ", width=LABEL_WIDTH, anchor="w")
-    youEntry = tb.Entry(row2, width=ENTRY_WIDTH)
-    youTitle.pack(side=LEFT)
-    youEntry.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="Name: ", anchor="w").grid(row=1, column=0, sticky="w", pady=8, padx=10)
+    youEntry = tb.Entry(container)
+    youEntry.grid(row=1, column=1, sticky="ew", pady=8, padx=10)
 
-    row3 = tb.Frame(container)
-    row3.pack(fill="x", pady=5)
-    global momEntry
-    momTitle = tb.Label(row3, text="Mother's Maiden Name: ", width=LABEL_WIDTH, anchor="w")
-    momEntry = tb.Entry(row3, width=ENTRY_WIDTH)
-    momTitle.pack(side=LEFT)
-    momEntry.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="Mother's Maiden Name: ", anchor="w").grid(row=2, column=0, sticky="w", pady=8, padx=10)
+    momEntry = tb.Entry(container)
+    momEntry.grid(row=2, column=1, sticky="ew", pady=8, padx=10)
 
-    row4 = tb.Frame(container)
-    row4.pack(fill="x", pady=5)
-    global dadEntry
-    dadTitle = tb.Label(row4, text="Father's Name: ", width=LABEL_WIDTH, anchor="w")
-    dadEntry = tb.Entry(row4, width=ENTRY_WIDTH)
-    dadTitle.pack(side=LEFT)
-    dadEntry.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="Father's Name: ", anchor="w").grid(row=3, column=0, sticky="w", pady=8, padx=10)
+    dadEntry = tb.Entry(container)
+    dadEntry.grid(row=3, column=1, sticky="ew", pady=8, padx=10)
    
-    row5 = tb.Frame(container)
-    row5.pack(fill="x", pady=5)
-    global birth_errorType
-    birth_Title = tb.Label(row5, text="Select an Error: ", width=LABEL_WIDTH, anchor="w")
+    tb.Label(container, text="Select an Error: ", anchor="w").grid(row=4, column=0, sticky="w", pady=8, padx=10)
     bErrors = ["Date of Birth", "Sex", "Place of Birth", "Father Details", "Mother Details", "Birth Order", "Type of Birth"]
-    birth_errorType = tb.Combobox(row5, values=bErrors, width=ENTRY_WIDTH-3, state='readonly')
+    birth_errorType = tb.Combobox(container, values=bErrors, state='readonly')
     birth_errorType.set(" ")
-    birth_Title.pack(side=LEFT) 
-    birth_errorType.pack(side=LEFT, fill="x", expand=True)
+    birth_errorType.grid(row=4, column=1, sticky="ew", pady=8, padx=10)
     
-    row6 = tb.Frame(container)
-    row6.pack(fill="x", pady=5)
-    global borigEntry
-    borigTitle = tb.Label(row6, text="Erroneous Value: ", width=LABEL_WIDTH, anchor="w")
-    borigEntry = tb.Entry(row6, width=ENTRY_WIDTH)
-    borigTitle.pack(side=LEFT)
-    borigEntry.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="Erroneous Value: ", anchor="w").grid(row=5, column=0, sticky="w", pady=8, padx=10)
+    borigEntry = tb.Entry(container)
+    borigEntry.grid(row=5, column=1, sticky="ew", pady=8, padx=10)
     
-    row7 = tb.Frame(container)
-    row7.pack(fill="x", pady=5)
-    global bnewEntry
-    bnewTitle = tb.Label(row7, text="New Value: ", width=LABEL_WIDTH, anchor="w")
-    bnewEntry = tb.Entry(row7, width=ENTRY_WIDTH)
-    bnewTitle.pack(side=LEFT)
-    bnewEntry.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="New Value: ", anchor="w").grid(row=6, column=0, sticky="w", pady=8, padx=10)
+    bnewEntry = tb.Entry(container)
+    bnewEntry.grid(row=6, column=1, sticky="ew", pady=8, padx=10)
 
-    row8 = tb.Frame(container)
-    row8.pack(fill="x", pady=5)
-    global bexplain
-    bexplainTitle = tb.Label(row8, text="Explanation for the Change: ", width=LABEL_WIDTH, anchor="w")
-    bexplain = tb.Entry(row8, width=ENTRY_WIDTH)
-    bexplainTitle.pack(side=LEFT)
-    bexplain.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="Explanation for the Change: ", anchor="w").grid(row=7, column=0, sticky="w", pady=8, padx=10)
+    bexplain = tb.Entry(container)
+    bexplain.grid(row=7, column=1, sticky="ew", pady=8, padx=10)
 
-    row9 = tb.Frame(container)
-    row9.pack(fill="x", pady=20)
-    close_but = tb.Button(row9, text="Cancel", command=lambda: navigate_to(entry_system_screen), bootstyle="danger")
-    close_but.pack(side=LEFT, padx=10, expand=True)
-    test_but = tb.Button(row9, text="Confirm", command=birth_confirm, bootstyle="primary")
-    test_but.pack(side=LEFT, padx=10, expand=True)
+    row_btn = tb.Frame(container)
+    row_btn.grid(row=8, column=0, columnspan=2, pady=30)
+    
+    # Left and Right actions configured to matched Grey variations
+    close_but = LiftedRoundedButton(row_btn, text="Cancel", image=None, command=lambda: navigate_to(entry_system_screen), variant="grey_button", width=180, height=60)
+    close_but.pack(side=LEFT, padx=20)
+    
+    test_but = LiftedRoundedButton(row_btn, text="Confirm", image=None, command=birth_confirm, variant="grey_button", width=180, height=60)
+    test_but.pack(side=LEFT, padx=20)
 
 def death_cert_screen():
+    global death_regEntry, death_nameEntry, death_errorType, origEntry, newEntry, explain
     container = tb.Frame(content_frame, padding=30)
-    container.pack(expand=True)
+    container.pack(expand=True, fill="both")
+    container.columnconfigure(1, weight=1)
 
-    row1 = tb.Frame(container)
-    row1.pack(fill="x", pady=5)
-    global death_regEntry
-    death_reg = tb.Label(row1, text="Registry Number: ", width=LABEL_WIDTH, anchor="w")
-    death_regEntry = tb.Entry(row1, width=ENTRY_WIDTH)
-    death_reg.pack(side=LEFT)
-    death_regEntry.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="Registry Number: ", anchor="w").grid(row=0, column=0, sticky="w", pady=8, padx=10)
+    death_regEntry = tb.Entry(container)
+    death_regEntry.grid(row=0, column=1, sticky="ew", pady=8, padx=10)
+
+    tb.Label(container, text="Name: ", anchor="w").grid(row=1, column=0, sticky="w", pady=8, padx=10)
+    death_nameEntry = tb.Entry(container)
+    death_nameEntry.grid(row=1, column=1, sticky="ew", pady=8, padx=10)
    
-    row2 = tb.Frame(container)
-    row2.pack(fill="x", pady=5)
-    global death_errorType
-    death_Title = tb.Label(row2, text="Select an Error: ", width=LABEL_WIDTH, anchor="w")
+    tb.Label(container, text="Select an Error: ", anchor="w").grid(row=2, column=0, sticky="w", pady=8, padx=10)
     bErrors = ["Name", "Date of death", "Sex", "Age at Time of death", "Place of death", "Registration of death (Date)", "Certification of death (Date)"]
-    death_errorType = tb.Combobox(row2, values=bErrors, width=ENTRY_WIDTH-3, state='readonly')
+    death_errorType = tb.Combobox(container, values=bErrors, state='readonly')
     death_errorType.set(" ")
-    death_Title.pack(side=LEFT) 
-    death_errorType.pack(side=LEFT, fill="x", expand=True)
+    death_errorType.grid(row=2, column=1, sticky="ew", pady=8, padx=10)
     
-    row3 = tb.Frame(container)
-    row3.pack(fill="x", pady=5)
-    global origEntry
-    origTitle = tb.Label(row3, text="Erroneous Value: ", width=LABEL_WIDTH, anchor="w")
-    origEntry = tb.Entry(row3, width=ENTRY_WIDTH)
-    origTitle.pack(side=LEFT)
-    origEntry.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="Erroneous Value: ", anchor="w").grid(row=3, column=0, sticky="w", pady=8, padx=10)
+    origEntry = tb.Entry(container)
+    origEntry.grid(row=3, column=1, sticky="ew", pady=8, padx=10)
     
-    row4 = tb.Frame(container)
-    row4.pack(fill="x", pady=5)
-    global newEntry
-    newTitle = tb.Label(row4, text="New Value: ", width=LABEL_WIDTH, anchor="w")
-    newEntry = tb.Entry(row4, width=ENTRY_WIDTH)
-    newTitle.pack(side=LEFT)
-    newEntry.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="New Value: ", anchor="w").grid(row=4, column=0, sticky="w", pady=8, padx=10)
+    newEntry = tb.Entry(container)
+    newEntry.grid(row=4, column=1, sticky="ew", pady=8, padx=10)
 
-    row5 = tb.Frame(container)
-    row5.pack(fill="x", pady=5)
-    global explain
-    exp_title = tb.Label(row5, text="Explanation for the Change: ", width=LABEL_WIDTH, anchor="w")
-    explain = tb.Entry(row5, width=ENTRY_WIDTH)
-    exp_title.pack(side=LEFT)
-    explain.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="Explanation for the Change: ", anchor="w").grid(row=5, column=0, sticky="w", pady=8, padx=10)
+    explain = tb.Entry(container)
+    explain.grid(row=5, column=1, sticky="ew", pady=8, padx=10)
 
-    row6 = tb.Frame(container)
-    row6.pack(fill="x", pady=20)
-    close_but = tb.Button(row6, text="Cancel", command=lambda: navigate_to(entry_system_screen), bootstyle="danger")
-    close_but.pack(side=LEFT, padx=10, expand=True)
-    test_but = tb.Button(row6, text="Confirm", command=death_confirm, bootstyle="primary")
-    test_but.pack(side=LEFT, padx=10, expand=True)
+    row_btn = tb.Frame(container)
+    row_btn.grid(row=6, column=0, columnspan=2, pady=30)
+    
+    close_but = LiftedRoundedButton(row_btn, text="Cancel", image=None, command=lambda: navigate_to(entry_system_screen), variant="grey_button", width=180, height=60)
+    close_but.pack(side=LEFT, padx=20)
+    
+    test_but = LiftedRoundedButton(row_btn, text="Confirm", image=None, command=death_confirm, variant="grey_button", width=180, height=60)
+    test_but.pack(side=LEFT, padx=20)
 
 def marriage_cert_screen():
+    global marriage_regEntry, marriage_errorType, applicantEntry, morigEntry, mnewEntry, mexplainEntry
     container = tb.Frame(content_frame, padding=30)
-    container.pack(expand=True)
+    container.pack(expand=True, fill="both")
+    container.columnconfigure(1, weight=1)
 
-    row1 = tb.Frame(container)
-    row1.pack(fill="x", pady=5)
-    global marriage_regEntry
-    marriage_reg = tb.Label(row1, text="Registry Number: ", width=LABEL_WIDTH, anchor="w")
-    marriage_regEntry = tb.Entry(row1, width=ENTRY_WIDTH)
-    marriage_reg.pack(side=LEFT)
-    marriage_regEntry.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="Registry Number: ", anchor="w").grid(row=0, column=0, sticky="w", pady=8, padx=10)
+    marriage_regEntry = tb.Entry(container)
+    marriage_regEntry.grid(row=0, column=1, sticky="ew", pady=8, padx=10)
    
-    row2 = tb.Frame(container)
-    row2.pack(fill="x", pady=5)
-    global marriage_errorType
-    marriage_Title = tb.Label(row2, text="Select an Error: ", width=LABEL_WIDTH, anchor="w")
+    tb.Label(container, text="Select an Error: ", anchor="w").grid(row=1, column=0, sticky="w", pady=8, padx=10)
     bErrors = ["Name of Husband", "Name of Spouse", "Date of Marriage", "Sex", "Age at Time of Marriage", "Place of Marriage", "Registration of Marriage (Date)", "Certification of Marriage (Date)"]
-    marriage_errorType = tb.Combobox(row2, values=bErrors, width=ENTRY_WIDTH-3, state='readonly')
+    marriage_errorType = tb.Combobox(container, values=bErrors, state='readonly')
     marriage_errorType.set(" ")
-    marriage_Title.pack(side=LEFT) 
-    marriage_errorType.pack(side=LEFT, fill="x", expand=True)
+    marriage_errorType.grid(row=1, column=1, sticky="ew", pady=8, padx=10)
     
-    row3 = tb.Frame(container)
-    row3.pack(fill="x", pady=5)
-    global applicantName
-    applicantTitle = tb.Label(row3, text="Applicant Name: ", width=LABEL_WIDTH, anchor="w")
-    applicantEntry = tb.Entry(row3, width=ENTRY_WIDTH)
-    applicantTitle.pack(side=LEFT)
-    applicantEntry.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="Applicant Name: ", anchor="w").grid(row=2, column=0, sticky="w", pady=8, padx=10)
+    applicantEntry = tb.Entry(container)
+    applicantEntry.grid(row=2, column=1, sticky="ew", pady=8, padx=10)
 
-    row4 = tb.Frame(container)
-    row4.pack(fill="x", pady=5)
-    global morigEntry
-    origTitle = tb.Label(row4, text="Erroneous Value: ", width=LABEL_WIDTH, anchor="w")
-    morigEntry = tb.Entry(row4, width=ENTRY_WIDTH)
-    origTitle.pack(side=LEFT)
-    morigEntry.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="Erroneous Value: ", anchor="w").grid(row=3, column=0, sticky="w", pady=8, padx=10)
+    morigEntry = tb.Entry(container)
+    morigEntry.grid(row=3, column=1, sticky="ew", pady=8, padx=10)
 
-    row5 = tb.Frame(container)
-    row5.pack(fill="x", pady=5)
-    global mnewEntry
-    newTitle = tb.Label(row5, text="New Value: ", width=LABEL_WIDTH, anchor="w")
-    mnewEntry = tb.Entry(row5, width=ENTRY_WIDTH)
-    newTitle.pack(side=LEFT)
-    mnewEntry.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="New Value: ", anchor="w").grid(row=4, column=0, sticky="w", pady=8, padx=10)
+    mnewEntry = tb.Entry(container)
+    mnewEntry.grid(row=4, column=1, sticky="ew", pady=8, padx=10)
 
-    row6 = tb.Frame(container)
-    row6.pack(fill="x", pady=5)
-    global mexplainEntry
-    mexplainTitle = tb.Label(row6, text="Explanation for the Change: ", width=LABEL_WIDTH, anchor="w")
-    mexplainEntry = tb.Entry(row6, width=ENTRY_WIDTH)
-    mexplainTitle.pack(side=LEFT)
-    mexplainEntry.pack(side=LEFT, fill="x", expand=True)
+    tb.Label(container, text="Explanation for the Change: ", anchor="w").grid(row=5, column=0, sticky="w", pady=8, padx=10)
+    mexplainEntry = tb.Entry(container)
+    mexplainEntry.grid(row=5, column=1, sticky="ew", pady=8, padx=10)
 
-    row7 = tb.Frame(container)
-    row7.pack(fill="x", pady=20)
-    close_but = tb.Button(row7, text="Cancel", command=lambda: navigate_to(entry_system_screen), bootstyle="danger")
-    close_but.pack(side=LEFT, padx=10, expand=True)
-    test_but = tb.Button(row7, text="Confirm", command=marriage_confirm, bootstyle="primary")
-    test_but.pack(side=LEFT, padx=10, expand=True)
+    row_btn = tb.Frame(container)
+    row_btn.grid(row=6, column=0, columnspan=2, pady=30)
+    
+    close_but = LiftedRoundedButton(row_btn, text="Cancel", image=None, command=lambda: navigate_to(entry_system_screen), variant="grey_button", width=180, height=60)
+    close_but.pack(side=LEFT, padx=20)
+    
+    test_but = LiftedRoundedButton(row_btn, text="Confirm", image=None, command=marriage_confirm, variant="grey_button", width=180, height=60)
+    test_but.pack(side=LEFT, padx=20)
 
 def dispatch_choice():   
     if cert_choice == "Death Certificate":
@@ -611,97 +682,291 @@ def dispatch_choice():
     elif cert_choice == "":
         messagebox.showwarning("Warning", "Please select a Certificate Type first.")
 
+
+# ==========================================
+# ACCESSIBILITY CONFIGURATION MENU
+# ==========================================
 def accessibility_screen():
     container = tb.Frame(content_frame, padding=30)
-    container.pack(expand=True)
+    container.pack(expand=True, fill="both")
 
-    theme_label = tb.Label(container, text="UI Themes", font=("Helvetica", 14, "bold"))
-    theme_label.pack(anchor="w", pady=(0, 10))
-    
+    BTN_W = 260
+    BTN_H = 70
+
+    # --- ROW 1: MAIN BACKGROUND ---
+    tb.Label(container, text="Main Background", font=("Helvetica", 18, "bold"), foreground=PSA_HEADER_BLUE).pack(anchor="w", pady=(10, 5), padx=40)
     row1 = tb.Frame(container)
-    row1.pack(fill="x", pady=(0, 20))
+    row1.pack(fill="x", pady=(0, 20), padx=40)
 
-    light_but = tb.Button(row1, text="Light Mode", command=lightmode, bootstyle="light")
-    light_but.pack(side=LEFT, padx=10)
+    light_but = LiftedRoundedButton(row1, text="Light Mode", image=None, command=lightmode, variant="default", width=BTN_W, height=BTN_H)
+    light_but.pack(side=LEFT, padx=15)
 
-    dark_but = tb.Button(row1, text="Dark Mode", command=darkmode, bootstyle="dark")
-    dark_but.pack(side=LEFT, padx=10)
+    dark_but = LiftedRoundedButton(row1, text="Dark Mode", image=None, command=darkmode, variant="default", width=BTN_W, height=BTN_H)
+    dark_but.pack(side=LEFT, padx=15)
 
-    grey_but = tb.Button(row1, text="Grey Mode", command=greymode, bootstyle="secondary")
-    grey_but.pack(side=LEFT, padx=10)
+    grey_but = LiftedRoundedButton(row1, text="Gray Mode", image=None, command=greymode, variant="default", width=BTN_W, height=BTN_H)
+    grey_but.pack(side=LEFT, padx=15)
 
-    font_label = tb.Label(container, text="Text Sizing Options", font=("Helvetica", 14, "bold"))
-    font_label.pack(anchor="w", pady=(10, 10))
-
+    # --- ROW 2: GENERAL TEXT SIZE ---
+    tb.Label(container, text="General Text Size", font=("Helvetica", 18, "bold"), foreground=PSA_HEADER_BLUE).pack(anchor="w", pady=(10, 5), padx=40)
     row2 = tb.Frame(container)
-    row2.pack(fill="x", pady=(0, 20))
+    row2.pack(fill="x", pady=(0, 20), padx=40)
 
-    inc_font_but = tb.Button(row2, text="Increase Font Size (+)", command=increase_font, bootstyle="info")
-    inc_font_but.pack(side=LEFT, padx=10)
+    inc_font_but = LiftedRoundedButton(row2, text="Increase Font Size (+)", image=None, command=increase_font, variant="default", width=BTN_W, height=BTN_H)
+    inc_font_but.pack(side=LEFT, padx=15)
 
-    dec_font_but = tb.Button(row2, text="Decrease Font Size (-)", command=decrease_font, bootstyle="info-outline")
-    dec_font_but.pack(side=LEFT, padx=10)
+    dec_font_but = LiftedRoundedButton(row2, text="Decrease Font Size (-)", image=None, command=decrease_font, variant="default", width=BTN_W, height=BTN_H)
+    dec_font_but.pack(side=LEFT, padx=15)
 
-    reset_label = tb.Label(container, text="System Actions", font=("Helvetica", 14, "bold"))
-    reset_label.pack(anchor="w", pady=(10, 10))
-
+    # --- ROW 3: AUDIT LOG TEXT SIZE ---
+    tb.Label(container, text="Audit Log Text Size", font=("Helvetica", 18, "bold"), foreground=PSA_HEADER_BLUE).pack(anchor="w", pady=(10, 5), padx=40)
     row3 = tb.Frame(container)
-    row3.pack(fill="x", pady=(0, 20))
+    row3.pack(fill="x", pady=(0, 20), padx=40)
 
-    reset_but = tb.Button(row3, text="Reset Settings", command=reset_settings, bootstyle="warning")
-    reset_but.pack(side=LEFT, padx=10)
+    inc_table_but = LiftedRoundedButton(row3, text="Increase Table Font (+)", image=None, command=increase_table_font, variant="default", width=BTN_W, height=BTN_H)
+    inc_table_but.pack(side=LEFT, padx=15)
 
+    dec_table_but = LiftedRoundedButton(row3, text="Decrease Table Font (-)", image=None, command=decrease_table_font, variant="default", width=BTN_W, height=BTN_H)
+    dec_table_but.pack(side=LEFT, padx=15)
+
+    # --- ROW 4: SYSTEM COMMAND ACTIONS ---
     row4 = tb.Frame(container)
-    row4.pack(fill="x", pady=(20, 0))
-    close_but = tb.Button(row4, text="Back to Main Menu", command=lambda: navigate_to(main_menu_screen), bootstyle="danger")
-    close_but.pack(side=LEFT, padx=10)
+    row4.pack(fill="x", pady=(30, 0), padx=40)
 
+    reset_but = LiftedRoundedButton(row4, text="Reset Settings", image=None, command=reset_settings, variant="accent", width=BTN_W, height=BTN_H)
+    reset_but.pack(side=LEFT, padx=15)
+
+    close_but = LiftedRoundedButton(row4, text="Back to Main Menu", image=None, command=lambda: navigate_to(main_menu_screen), variant="accent", width=BTN_W, height=BTN_H)
+    close_but.pack(side=LEFT, padx=15)
+
+
+# =====================================================================
+# ENTRY SYSTEM CONTAINER MAIN WINDOW (PROPORTIONATE SCALE MODES)
+# =====================================================================
 def entry_system_screen():
-    container = tb.Frame(content_frame, padding=30)
-    container.pack(expand=True)
-
-    row1 = tb.Frame(container)
-    row1.pack(fill="x", pady=5)
-    certificates = ["Birth Certificate", "Death Certificate", "Marriage Certificate"]
-    certTitle = tb.Label(row1, text="Certificate Type: ", width=LABEL_WIDTH, anchor="w")
-    
     global certType
-    certType = tb.Combobox(row1, values=certificates, width=ENTRY_WIDTH-3, state='readonly')
+    container = tb.Frame(content_frame, padding=30)
+    container.pack(expand=True, fill="both")
+    container.columnconfigure(1, weight=1)
+
+    tb.Label(container, text="Certificate Type: ", anchor="w").grid(row=0, column=0, sticky="w", pady=25, padx=10)
+    
+    certificates = ["Birth Certificate", "Death Certificate", "Marriage Certificate"]
+    certType = tb.Combobox(container, values=certificates, state='readonly')
     certType.bind("<<ComboboxSelected>>", update_entry)  
     certType.set(cert_choice if cert_choice else "")
+    certType.grid(row=0, column=1, sticky="ew", pady=25, padx=10)
 
-    certTitle.pack(side=LEFT)
-    certType.pack(side=LEFT, fill="x", expand=True)
+    row_btn = tb.Frame(container)
+    row_btn.grid(row=1, column=0, columnspan=2, pady=40)
 
-    row2 = tb.Frame(container)
-    row2.pack(fill="x", pady=20)
+    # Styled uniformly to the clean grey tone variant set
+    close_but = LiftedRoundedButton(row_btn, text="Back to Main Menu", image=None, command=lambda: navigate_to(main_menu_screen), variant="grey_button", width=220, height=65)
+    close_but.pack(side=LEFT, padx=20)
 
-    close_but = tb.Button(row2, text="Back to Main Menu", command=lambda: navigate_to(main_menu_screen), bootstyle="danger")
-    close_but.pack(side=LEFT, padx=10, expand=True)
+    test_but = LiftedRoundedButton(row_btn, text="Next", image=None, command=dispatch_choice, variant="grey_button", width=220, height=65)
+    test_but.pack(side=LEFT, padx=20)
 
-    test_but = tb.Button(row2, text="Next", command=dispatch_choice, bootstyle="primary")
-    test_but.pack(side=LEFT, padx=10, expand=True)
 
+# ==========================================
+# OBJECT-ORIENTED AUDIT LOGS IMPLEMENTATION
+# ==========================================
+class AuditLogPage(tb.Frame):
+    def __init__(self, parent, controller, show_enter_new=False):
+        super().__init__(parent)
+
+        titlefont = ("Arial", 18, "bold")
+        ourfont = ("Arial", 12)
+
+        mainframe = tb.Frame(self)
+        mainframe.pack(fill="both", expand=True)
+
+        headerframe = tb.Frame(mainframe)
+        headerframe.pack(fill="x", padx=20, pady=10)
+
+        tb.Label(headerframe, text="Audit Logs", font=titlefont).pack(anchor="w")
+        tb.Label(headerframe, text="Modifications made by employees", font=ourfont).pack(anchor="w")
+        
+        utility_frame = tb.Frame(headerframe)
+        utility_frame.pack(fill="x", pady=(10, 0))
+
+        tb.Button(
+            utility_frame,
+            text="🔄 Refresh View",
+            bootstyle="outline-secondary",
+            command=self.refresh_table
+        ).pack(side=LEFT, padx=(0, 20))
+        
+        tb.Label(utility_frame, text="🔍 Search: ", font=("Helvetica", 11)).pack(side=LEFT)
+        self.search_var = tb.StringVar()
+        self.search_var.trace_add("write", self.execute_live_filter)
+        
+        self.search_entry = tb.Entry(utility_frame, textvariable=self.search_var, width=35, bootstyle="info")
+        self.search_entry.pack(side=LEFT, padx=5)
+        
+        tableframe = tb.Frame(mainframe)
+        tableframe.pack(fill="both", expand=True, padx=20, pady=10)
+
+        tableframe.grid_rowconfigure(0, weight=1)
+        tableframe.grid_columnconfigure(0, weight=1)
+
+        self.dv = tb.widgets.tableview.Tableview(
+            master=tableframe,
+            paginated=True,
+            searchable=False,  
+            bootstyle=SUCCESS,
+            pagesize=10,
+        )
+        self.dv.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+
+        self.btn_row = tb.Frame(mainframe)
+        self.btn_row.pack(fill="x", padx=20, pady=(0, 15))
+
+        tb.Button(
+            self.btn_row,
+            text="Back to Main Menu",
+            bootstyle="danger",
+            command=lambda: navigate_to(main_menu_screen)
+        ).pack(side=LEFT)
+
+        if show_enter_new:
+            tb.Button(
+                self.btn_row,
+                text="➕ Enter New Record",
+                bootstyle="primary",
+                command=lambda: navigate_to(entry_system_screen)
+            ).pack(side=RIGHT)
+
+        self.refresh_table()
+
+    def refresh_table(self):
+        global all_fetched_audit_rows
+        all_fetched_audit_rows = fetch_latest_audit_rows()
+        self.search_var.set("")
+        self.render_table_rows(all_fetched_audit_rows)
+
+    def render_table_rows(self, dataset):
+        focused_widget = self.focus_get()
+        has_focus = (focused_widget == self.search_entry)
+
+        self.dv.delete_rows()
+        self.dv.build_table_data(c_dis_entry_audit, dataset)  
+        self.dv.load_table_data()   
+        self.dv.autofit_columns()   
+        self.dv.autoalign_columns()
+
+        if has_focus:
+            self.search_entry.focus_set()
+            self.search_entry.icursor(END)
+
+    def execute_live_filter(self, *args):
+        global all_fetched_audit_rows
+        query = self.search_var.get().strip().lower()
+        
+        if not query:
+            self.render_table_rows(all_fetched_audit_rows)
+            return
+
+        filtered_results = []
+        for row in all_fetched_audit_rows:
+            row_as_strings = [str(cell).lower() for cell in row]
+            if any(query in cell_str for cell_str in row_as_strings):
+                filtered_results.append(row)
+                
+        self.render_table_rows(filtered_results)
+
+
+def call_audit_logs_view(show_enter_new=False):
+    global current_active_page_ref
+    page_instance = AuditLogPage(content_frame, root, show_enter_new=show_enter_new)
+    page_instance.pack(fill="both", expand=True)
+    current_active_page_ref = page_instance  
+    apply_font_sizes()                       
+
+
+# ==========================================
+# 2-ROW IMAGE-DRIVEN MAIN MENU
+# ==========================================
 def main_menu_screen():
-    main_container = tb.Frame(content_frame, padding=20)
-    main_container.pack(expand=True)
+    username = "mac"  
+    base_path = f"/Users/{username}/Desktop/system_image"
 
-    row1 = tb.Frame(main_container)
-    row1.pack(fill="x", pady=10)
-    main_button = tb.Button(row1, text="Create New Entry", command=lambda: navigate_to(entry_system_screen), bootstyle="primary")
-    main_button.pack(ipadx=10, ipady=5)
+    try:
+        raw_plus = tb.PhotoImage(file=f"{base_path}/1.png")
+        plus_icon = raw_plus.subsample(13, 13) 
+    except Exception as e:
+        print(f"Could not load plus image: {e}")
+        plus_icon = None  
 
-    row2 = tb.Frame(main_container)
-    row2.pack(fill="x", pady=10)
-    accessibility_but = tb.Button(row2, text="Accessibility Settings", command=lambda: navigate_to(accessibility_screen), bootstyle="outline-secondary")
-    accessibility_but.pack(ipadx=10, ipady=5)
+    try:
+        raw_paper = tb.PhotoImage(file=f"{base_path}/2.png")
+        paper_icon = raw_paper.subsample(10, 10) 
+    except Exception as e:
+        print(f"Could not load paper image: {e}")
+        paper_icon = None
 
-    row3 = tb.Frame(main_container)
-    row3.pack(fill="x", pady=10)
-    results_but = tb.Button(row3, text="View Results Panel", command=lambda: navigate_to(results_panel_screen), bootstyle="info")
-    results_but.pack(ipadx=10, ipady=5)
+    try:
+        raw_gear = tb.PhotoImage(file=f"{base_path}/3.png")
+        gear_icon = raw_gear.subsample(10, 10)
+    except Exception as e:
+        print(f"Could not load gear image: {e}")
+        gear_icon = None
 
-# Initialize application layout with the main landing menu
+    main_container = tb.Frame(content_frame, padding=50)
+    main_container.pack(expand=True, fill="both")
+    
+    main_container.columnconfigure(0, weight=1, uniform="group1")
+    main_container.columnconfigure(1, weight=1, uniform="group1")
+    main_container.rowconfigure(0, weight=1)
+
+    btn_create = LiftedRoundedButton(
+        main_container, 
+        text="\nNew Entry", 
+        image=plus_icon,
+        compound="top",
+        command=lambda: navigate_to(entry_system_screen),
+        width=320,
+        height=200,
+        variant="default"
+    )
+    btn_create.grid(row=0, column=0, sticky="nsew", padx=25, pady=25)
+
+    right_sub_container = tb.Frame(main_container)
+    right_sub_container.grid(row=0, column=1, sticky="nsew")
+    right_sub_container.columnconfigure(0, weight=1)
+    right_sub_container.rowconfigure(0, weight=1, uniform="right_rows")
+    right_sub_container.rowconfigure(1, weight=1, uniform="right_rows")
+
+    btn_logs = LiftedRoundedButton(
+        right_sub_container, 
+        text="     View Logs", 
+        image=paper_icon,
+        compound="left",
+        command=lambda: navigate_to(call_audit_logs_view, show_enter_new=False),
+        width=320,
+        height=90,
+        variant="default"
+    )
+    btn_logs.grid(row=0, column=0, sticky="nsew", padx=25, pady=25)
+
+    btn_settings = LiftedRoundedButton(
+        right_sub_container, 
+        text="         Settings and\n         Accessibility", 
+        image=gear_icon,
+        compound="left",
+        command=lambda: navigate_to(accessibility_screen),
+        width=320,
+        height=90,
+        variant="default"
+    )
+    btn_settings.grid(row=1, column=0, sticky="nsew", padx=25, pady=25)
+
+    main_container.img_ref1 = plus_icon
+    main_container.img_ref2 = paper_icon
+    main_container.img_ref3 = gear_icon
+
+
+# Application run configurations
 main_menu_screen()
 apply_font_sizes()
 
