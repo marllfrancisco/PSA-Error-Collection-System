@@ -8,6 +8,8 @@ from ttkbootstrap.constants import *
 from ttkbootstrap.widgets.tableview import Tableview  
 from tkinter import messagebox, StringVar
 from datetime import datetime
+import ctypes
+from PIL import Image, ImageTk
 
 # ==========================================
 # DATABASE & FILE STORAGE SETUP
@@ -15,7 +17,7 @@ from datetime import datetime
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',          
-    'password': 'Youaremypassword123',          
+    'password': 'ruiiumaru',          
     'database': 'ecorrectdb'
 }
 
@@ -246,21 +248,35 @@ class LiftedRoundedButton(tb.Canvas):
                 self.create_text(center_x, center_y + 35, text=self.text, font=("Helvetica", self.text_size, "bold"), fill=text_color, justify=CENTER, width=w - 15)
             else:
                 img_w = self.image.width() if hasattr(self.image, 'width') else 24
-                offset_x = (w - (img_w + 10 + (len(self.text) * (self.text_size * 0.55)))) / 2
-                start_x = max(15, offset_x if offset_x > 15 else 20)
+                gap = 15  # The space between the icon and the text
                 
+                # 1. Draw hidden text off-screen just to measure its exact pixel width
+                temp_text = self.create_text(0, -100, text=self.text, font=("Helvetica", self.text_size, "bold"), justify=LEFT)
+                bbox = self.bbox(temp_text)
+                text_w = bbox[2] - bbox[0]
+                self.delete(temp_text)  # Delete the hidden text
+                
+                # 2. Calculate the exact starting X coordinate to center the whole group
+                total_content_width = img_w + gap + text_w
+                start_x = (w - total_content_width) / 2
+                
+                # 3. Draw the image and text using the new dynamically centered coordinate
                 self.create_image(start_x + (img_w / 2), center_y, image=self.image)
-                self.create_text(start_x + img_w + 12, center_y, text=self.text, font=("Helvetica", self.text_size, "bold"), fill=text_color, anchor="w", justify=LEFT, width=w - (start_x + img_w + 20))
+                self.create_text(start_x + img_w + gap, center_y, text=self.text, font=("Helvetica", self.text_size, "bold"), fill=text_color, anchor="w", justify=LEFT)
         else:
             self.create_text(center_x, center_y, text=self.text, font=("Helvetica", self.text_size, "bold"), fill=text_color, justify=CENTER, width=w - 20)
 
+    # REMOVES THE WHITE GLITCHING BORDER BUG AROUND ROUNDED CARDS BY USING POLYGON INSTEAD OF OVALS/ARCS
     def create_rounded_rect(self, x1, y1, x2, y2, r, **kwargs):
         if r == 0:
             return self.create_rectangle(x1, y1, x2, y2, **kwargs)
+        
+        # Correctly mapped coordinate points for smooth Bezier rounding
         points = [
-            x1+r, y1, x1+r, y1, x2-r, y1, x2-r, y1, x2, y1+r, x2, y1+r,
-            x2, y2-r, x2, y2-r, x2, y2, x2-r, y2, x2-r, y2, x1+r, y2, x1+r, y2,
-            x1, y2, x1, y2-r, x1, y2-r, x1, y1+r, x1, y1+r, x1, y1
+            x1+r, y1,  x2-r, y1,  x2, y1,     # Top edge to Top-Right corner
+            x2, y1+r,  x2, y2-r,  x2, y2,     # Right edge to Bottom-Right corner
+            x2-r, y2,  x1+r, y2,  x1, y2,     # Bottom edge to Bottom-Left corner
+            x1, y2-r,  x1, y1+r,  x1, y1      # Left edge to Top-Left corner
         ]
         return self.create_polygon(points, smooth=True, **kwargs)
 
@@ -366,8 +382,15 @@ def reset_settings():
 
 # --- FIXED FILE ESCAPE STRINGS HERE ---
 try:
-    raw_logo = tb.PhotoImage(file=r"C:\Users\Kiel\Desktop\Sophomore\PSA-Error-Collection-System\SourceCodes\images\psa.png")
-    logo_image = raw_logo.subsample(8, 8) 
+    # Use raw string 'r' to prevent escape character issues in Windows file paths
+    raw_img = Image.open(r"SourceCodes\images\psa.png")
+    
+    # Resize the image using high-quality LANCZOS resampling (equivalent to your 1/6th subsample)
+    new_width = raw_img.width // 6
+    new_height = raw_img.height // 6
+    resized_img = raw_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    
+    logo_image = ImageTk.PhotoImage(resized_img)
 except Exception as e:
     print(f"Warning: Main header logo image could not be loaded. Details: {e}")
     logo_image = None
@@ -594,6 +617,12 @@ def record_accounts():
 # ==========================================
 # AUTHENTICATION VISUAL INTERFACES
 # ==========================================
+# Enable High DPI awareness for Windows to make fonts/UI crisp
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+except Exception:
+    pass
+
 def login_screen():
     container = tb.Frame(content_frame, padding=30)
     container.pack(expand=True)
@@ -1203,23 +1232,30 @@ def main_menu_screen():
     # --- FIXED FILE ESCAPE STRINGS HERE ---
     base_path = rf"C:\Users\{username}\Desktop\Sophomore\PSA-Error-Collection-System\SourceCodes\images"
 
+    # --- CRISP IMAGE LOADING WITH PILLOW ---
     try:
-        raw_plus = tb.PhotoImage(file=f"{base_path}/1.png")
-        plus_icon = raw_plus.subsample(13, 13) 
+        img_plus = Image.open(r"SourceCodes\images\1.png")
+        # Simulates subsample(13, 13) cleanly with high-quality anti-aliasing
+        resized_plus = img_plus.resize((img_plus.width // 13, img_plus.height // 13), Image.Resampling.LANCZOS)
+        plus_icon = ImageTk.PhotoImage(resized_plus)
     except Exception as e:
         print(f"Could not load plus image: {e}")
         plus_icon = None  
 
     try:
-        raw_paper = tb.PhotoImage(file=f"{base_path}/2.png")
-        paper_icon = raw_paper.subsample(10, 10) 
+        img_paper = Image.open(r"SourceCodes\images\2.png")
+        # Simulates subsample(10, 10) cleanly
+        resized_paper = img_paper.resize((img_paper.width // 10, img_paper.height // 10), Image.Resampling.LANCZOS)
+        paper_icon = ImageTk.PhotoImage(resized_paper)
     except Exception as e:
         print(f"Could not load paper image: {e}")
         paper_icon = None
 
     try:
-        raw_gear = tb.PhotoImage(file=f"{base_path}/3.png")
-        gear_icon = raw_gear.subsample(10, 10)
+        img_gear = Image.open(r"SourceCodes\images\3.png")
+        # Simulates subsample(10, 10) cleanly
+        resized_gear = img_gear.resize((img_gear.width // 10, img_gear.height // 10), Image.Resampling.LANCZOS)
+        gear_icon = ImageTk.PhotoImage(resized_gear)
     except Exception as e:
         print(f"Could not load gear image: {e}")
         gear_icon = None
@@ -1244,13 +1280,13 @@ def main_menu_screen():
     right_sub_container.rowconfigure(1, weight=1, uniform="right_rows")
 
     btn_logs = LiftedRoundedButton(
-        right_sub_container, text="     View Logs", image=paper_icon, compound="left",
+        right_sub_container, text="View Logs", image=paper_icon, compound="left",
         command=lambda: navigate_to(call_audit_logs_view, show_enter_new=False), width=320, height=90, variant="default", text_size=18
     )
     btn_logs.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
 
     btn_settings = LiftedRoundedButton(
-        right_sub_container, text="         Settings and\n         Accessibility", image=gear_icon, compound="left",
+        right_sub_container, text="Settings and\nAccessibility", image=gear_icon, compound="left",
         command=lambda: navigate_to(accessibility_screen), width=320, height=90, variant="default", text_size=18
     )
     btn_settings.grid(row=1, column=0, sticky="nsew", padx=20, pady=20)
