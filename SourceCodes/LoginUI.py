@@ -9,14 +9,29 @@ try:
 except ImportError:
     Image = ImageTk = None
 
+############################### Main Frame ##############################
 #Sets up the main window with ttkbootstrap
 frame = tb.Window()
 frame.style.register_theme(psatheme)
 frame.style.theme_use("psa")
 
-# setting tkinter window size
-frame.geometry("%dx%d" % (600, 670))
-frame.title("DTBS Login")
+# setting tkinter window size CENTERED
+# 1. Set the window size
+app_width = 600
+app_height = 670
+
+# 2. Calculate screen coordinates
+screen_width = frame.winfo_screenwidth()
+screen_height = frame.winfo_screenheight()
+
+# 3. Calculate window coordinates
+x = (screen_width / 2) - (app_width / 2)
+y = (screen_height / 2) - (app_height / 2)
+
+# 4. Apply geometry with the calculated position
+frame.geometry(f"{app_width}x{app_height}+{int(x)}+{int(y)}")
+
+frame.title("PSA Error Collection")
 
 ###########################################################################
 
@@ -216,9 +231,9 @@ error_label.pack()
 #confirm button
 tb.Button(login_card, text="Login", bootstyle="primary", command=verify_user_n_passcode, width=60, padding=10).pack(pady=5)
 #Sign-up button
-tb.Button(login_card, text="Create Account", bootstyle="secondary", command=show_signup).pack(pady=5)
+tb.Button(login_card, text="Create Account", bootstyle="link", command=show_signup).pack(pady=5)
 #Forget button
-tb.Button(login_card, text="Forget Password?", bootstyle="secondary", command=show_forget).pack(pady=5)
+tb.Button(login_card, text="Forget Password?", bootstyle="link", command=show_forget).pack(pady=5)
 
 
 ##################################  Sign up Section   ###############################################
@@ -280,7 +295,7 @@ forget_error_label.pack()
 
 # Takes the user's username
 tb.Label(forget_card, text="Enter Admin's Password", font=navfont).pack(anchor="w", pady=(5, 2))
-input_forget_admin_password = tb.Entry(forget_card, textvariable=admin_password_var, font=ourfont, width=30)
+input_forget_admin_password = tb.Entry(forget_card, textvariable=admin_password_var, font=ourfont, width=30, show="*")
 input_forget_admin_password.pack(pady=5, fill="x")
 
 #confirm button

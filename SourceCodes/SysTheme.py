@@ -10,7 +10,7 @@ psatheme = ThemeDefinition(
     themetype="light",
     colors={
         "primary": "#0C66AB",
-        "secondary": "#81ACC9",
+        "secondary": "#5D86A2",
         "success": "#2E8B57",
         "info": "#1565C0",
         "warning": "#E0AA49",
