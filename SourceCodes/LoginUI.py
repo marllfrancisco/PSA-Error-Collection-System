@@ -47,6 +47,7 @@ login_frame.pack(fill="both", expand=True)
 
 
 #Variables in this code
+ADMIN_EMAIL = "admin@psa.gov.ph"
 ADMIN_PASSWORD = "UnlimitedDataWorks" #I am the bones of my code. keys is my body, 0 and 1s is my blood
     #This is use for the log-in frame
 username_var = StringVar()
