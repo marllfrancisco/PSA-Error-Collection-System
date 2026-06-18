@@ -1,13 +1,15 @@
 import re
+import os
+import json
 import mysql.connector
 from mysql.connector import Error
 import ttkbootstrap as tb  
 from ttkbootstrap.constants import *
 from ttkbootstrap.widgets.tableview import Tableview  
-from tkinter import messagebox
+from tkinter import messagebox, StringVar
 
 # ==========================================
-# DATABASE CONNECTION SETUP
+# DATABASE & FILE STORAGE SETUP
 # ==========================================
 DB_CONFIG = {
     'host': 'localhost',
@@ -16,7 +18,17 @@ DB_CONFIG = {
     'database': 'ecorrectdb'
 }
 
+ACCOUNTS_FILE = "accounts.json"
 ACTIVE_EMPLOYEE_ID = 1 
+
+if os.path.exists(ACCOUNTS_FILE):
+    with open(ACCOUNTS_FILE, "r") as file:
+        account_database = json.load(file)
+else:
+    account_database = {
+        "Admin": ["Admin@gmail.com", "UnlimitedDataWorks"],
+        "Michael Daitol": ["GelSensei@gmail.com", "1mgelodesu!"]
+    }
 
 c_dis_entry_audit = [
     {"text": "Report ID", "stretch": True},
@@ -44,7 +56,6 @@ def fetch_latest_audit_rows():
     conn = get_db_connection()
     if not conn:
         return []
-    
     cursor = conn.cursor()
     try:
         query = """
@@ -66,7 +77,6 @@ def fetch_latest_audit_rows():
 # GUI MAIN APPLICATION INITIALIZATION
 # ==========================================
 root = tb.Window(themename="flatly")
-
 width = root.winfo_screenwidth() 
 height = root.winfo_screenheight()
 root.geometry("%dx%d" % (width, height))
@@ -87,6 +97,22 @@ font_size_table = MAX_IMAGE_TABLE_SIZE
 
 certType = None
 cert_choice = ""
+
+# Authentication global variables
+username_var = StringVar()
+password_var = StringVar()
+login_error_var = StringVar()
+
+new_username_var = StringVar()
+new_email_var = StringVar()
+new_password_var = StringVar()
+confirm_new_password_var = StringVar()
+signup_error_var = StringVar()
+
+forget_username_var = StringVar()
+forget_new_password_var = StringVar()
+admin_password_var = StringVar()
+forget_error_var = StringVar()
 
 # Form entries
 death_regEntry = None
@@ -112,14 +138,12 @@ morigEntry = None
 mnewEntry = None
 mexplainEntry = None
 
-
 # =====================================================================
-# CUSTOM LIFTED ROUNDED CARD BUTTON COMPONENT
+# CUSTOM LIFTED ROUNDED CARD BUTTON COMPONENT (FIXED CLIPPING BUGS)
 # =====================================================================
 class LiftedRoundedButton(tb.Canvas):
     def __init__(self, parent, text, image, command, compound="top", variant="default", text_size=16, bg_override=None, **kwargs):
         current_theme_bg = bg_override if bg_override else (tb.Style().lookup("TFrame", "background") or "#f8f9fa")
-        
         super().__init__(parent, highlightthickness=0, borderwidth=0, bg=current_theme_bg, **kwargs)
         self.text = text
         self.image = image
@@ -150,7 +174,6 @@ class LiftedRoundedButton(tb.Canvas):
         if w < 10 or h < 10:
             return
 
-        # Maximized smooth rounding geometry for modern friendly elements
         radius = 35  
         
         if self._disabled:
@@ -204,7 +227,6 @@ class LiftedRoundedButton(tb.Canvas):
         
         cx1, cy1 = 2, 2
         cx2, cy2 = w - 2, h - 2
-        
         face_fill = face_hover if (self.hovered and not self._disabled) else face_normal
         
         if self.variant in ["navbar_item", "nav_active"]:
@@ -214,25 +236,30 @@ class LiftedRoundedButton(tb.Canvas):
             outline_color = border_color if border_color else face_fill
 
         self.create_rounded_rect(cx1, cy1, cx2, cy2, radius, fill=face_fill, outline=outline_color, width=1)
-
         center_x = (cx1 + cx2) / 2
         center_y = (cy1 + cy2) / 2
 
+        # RENDER WITH BOUNDS PROTECTION AND AUTOMATIC WRAPPING RULES
         if self.image:
             if self.compound == "top":
-                self.create_image(center_x, center_y - 20, image=self.image)
-                self.create_text(center_x, center_y + 35, text=self.text, font=("Helvetica", self.text_size, "bold"), fill=text_color, justify=CENTER)
+                self.create_image(center_x, center_y - 22, image=self.image)
+                self.create_text(center_x, center_y + 35, text=self.text, font=("Helvetica", self.text_size, "bold"), fill=text_color, justify=CENTER, width=w - 15)
             else:
-                self.create_image(center_x - 70, center_y, image=self.image)
-                self.create_text(center_x + 30, center_y, text=self.text, font=("Helvetica", self.text_size, "bold"), fill=text_color, justify=LEFT)
+                # Dynamic horizontal rendering logic to ensure uniform centering without overflowing off-screen right
+                img_w = self.image.width() if hasattr(self.image, 'width') else 24
+                offset_x = (w - (img_w + 10 + (len(self.text) * (self.text_size * 0.55)))) / 2
+                start_x = max(15, offset_x if offset_x > 15 else 20)
+                
+                self.create_image(start_x + (img_w / 2), center_y, image=self.image)
+                self.create_text(start_x + img_w + 12, center_y, text=self.text, font=("Helvetica", self.text_size, "bold"), fill=text_color, anchor="w", justify=LEFT, width=w - (start_x + img_w + 20))
         else:
-            self.create_text(center_x, center_y, text=self.text, font=("Helvetica", self.text_size, "bold"), fill=text_color, justify=CENTER)
+            self.create_text(center_x, center_y, text=self.text, font=("Helvetica", self.text_size, "bold"), fill=text_color, justify=CENTER, width=w - 20)
 
     def create_rounded_rect(self, x1, y1, x2, y2, r, **kwargs):
         if r == 0:
             return self.create_rectangle(x1, y1, x2, y2, **kwargs)
         points = [
-            x1+r, y1, x1+r, y1, x2-r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y1+r,
+            x1+r, y1, x1+r, y1, x2-r, y1, x2-r, y1, x2, y1+r, x2, y1+r,
             x2, y2-r, x2, y2-r, x2, y2, x2-r, y2, x2-r, y2, x1+r, y2, x1+r, y2,
             x1, y2, x1, y2-r, x1, y2-r, x1, y1+r, x1, y1+r, x1, y1
         ]
@@ -346,7 +373,7 @@ except Exception as e:
     print(f"Warning: Main header logo image could not be loaded. Details: {e}")
     logo_image = None
 
-# Header Banner with border suppression configurations
+# Header Banner
 Title = tb.Label(
     root, 
     text="  REPUBLIC OF THE PHILIPPINES\n  PHILIPPINE STATISTICS AUTHORITY", 
@@ -361,13 +388,9 @@ Title = tb.Label(
 )
 Title.pack(fill="x")
 
-# =====================================================================
-# GLOBAL NAVIGATION BAR COMPONENT (BORDERLESS FULL-WIDTH COHESION)
-# =====================================================================
+# Global Navigation Bar Setup
 root.style.configure("NavFrame.TFrame", background=PSA_HEADER_BLUE, borderwidth=0, relief=FLAT)
 nav_frame = tb.Frame(root, style="NavFrame.TFrame", height=45, borderwidth=0, relief=FLAT)
-nav_frame.pack(fill="x")
-nav_frame.pack_propagate(False)
 
 nav_home = LiftedRoundedButton(nav_frame, text="Home Menu", image=None, command=lambda: navigate_to(main_menu_screen), variant="navbar_item", width=160, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
 nav_home.pack(side=LEFT)
@@ -378,21 +401,37 @@ nav_logs.pack(side=LEFT)
 nav_settings = LiftedRoundedButton(nav_frame, text="Accessibility Settings", image=None, command=lambda: navigate_to(accessibility_screen), variant="navbar_item", width=180, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
 nav_settings.pack(side=LEFT)
 
+nav_logout = LiftedRoundedButton(nav_frame, text="Logout", image=None, command=lambda: confirm_logout(), variant="navbar_item", width=120, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
+nav_logout.pack(side=RIGHT)
+
+def confirm_logout():
+    if messagebox.askyesno("Logout", "Are you sure you want to log out of the system?"):
+        nav_frame.pack_forget()
+        navigate_to(login_screen)
+
 def sync_navbar_theme():
-    # Forces the navigation frame layout to maintain flush cohesion across themes without showing default lines
     root.style.configure("NavFrame.TFrame", background=PSA_HEADER_BLUE, borderwidth=0, relief=FLAT)
     nav_frame.configure(style="NavFrame.TFrame")
     nav_home.draw_card()
     nav_logs.draw_card()
     nav_settings.draw_card()
+    nav_logout.draw_card()
 
 def update_navbar_state(current_screen):
+    if current_screen in [login_screen, signup_screen, forget_screen]:
+        nav_frame.pack_forget()
+        return
+        
+    if not nav_frame.winfo_manager():
+        nav_frame.pack(fill="x", before=content_frame)
+
     entry_screens = [entry_system_screen, birth_cert_screen, death_cert_screen, marriage_cert_screen]
     is_entry_mode = current_screen in entry_screens
     
     nav_home.set_disabled(is_entry_mode)
     nav_logs.set_disabled(is_entry_mode)
     nav_settings.set_disabled(is_entry_mode)
+    nav_logout.set_disabled(False)
     
     if not is_entry_mode:
         nav_home.variant = "nav_active" if current_screen == main_menu_screen else "navbar_item"
@@ -401,6 +440,7 @@ def update_navbar_state(current_screen):
         nav_home.draw_card()
         nav_logs.draw_card()
         nav_settings.draw_card()
+        nav_logout.draw_card()
 
 content_frame = tb.Frame(root, padding=20)
 content_frame.pack(expand=True, fill="both")
@@ -455,6 +495,191 @@ def execution_wrap(loader_widget, target_function, *args, **kwargs):
     loader_widget.destroy()
     target_function(*args, **kwargs)
 
+# =====================================================================
+# AUTHENTICATION BUSINESS LOGIC
+# =====================================================================
+def verify_user_n_passcode():
+    entered_username = username_var.get().strip()
+    entered_password = password_var.get().strip()
+
+    if not entered_username or not entered_password:
+        login_error_var.set("Fields cannot be empty")
+        return
+
+    for username, data in account_database.items():
+        email = data[0]
+        password = data[1]
+    
+        if entered_username == email or entered_username == username:
+            if entered_password == password:
+                login_error_var.set("")
+                username_var.set("")
+                password_var.set("")
+                messagebox.showinfo("Success", f"Welcome back, {username}!")
+                navigate_to(main_menu_screen)
+                return
+            else:
+                login_error_var.set("Wrong Password")
+                return
+    login_error_var.set("User not found")
+    
+def add_account():
+    new_username = new_username_var.get().strip()
+    new_email = new_email_var.get().strip()
+    new_password = new_password_var.get().strip()
+    confirm_password = confirm_new_password_var.get().strip()
+
+    if new_username == "" or new_email == "" or new_password == "":
+        signup_error_var.set("Some fields are blank. please fill them all")
+        return
+    
+    if new_password != confirm_password:
+        signup_error_var.set("Mismatched Passwords, try again")
+        return
+    
+    for username, data in account_database.items():
+        if new_email == data[0]:
+            signup_error_var.set("Email is already used in another account")
+            return
+        
+    confirm = messagebox.askyesno("Create Account", "Do you want to create this account?")
+    if confirm:
+        account_database[new_username] = [new_email, new_password]
+        record_accounts()
+        messagebox.showinfo("Success", "Account created successfully!")
+        
+        new_username_var.set("")
+        new_email_var.set("")
+        new_password_var.set("")
+        confirm_new_password_var.set("")
+        signup_error_var.set("")
+        
+        navigate_to(login_screen)
+
+def change_password():
+    forgotten_username = forget_username_var.get().strip()
+    new_user_password = forget_new_password_var.get().strip()
+    admin_passkey = admin_password_var.get().strip()
+
+    if not forgotten_username or not new_user_password or not admin_passkey:
+        forget_error_var.set("Please populate all input targets.")
+        return
+
+    for username, data in account_database.items():
+        email = data[0]
+
+        if forgotten_username == username or forgotten_username == email:
+            if admin_passkey != account_database["Admin"][1]:
+                forget_error_var.set("Wrong Admin Password")
+                return
+
+            confirm = messagebox.askyesno("Change Password", f"Change password for '{username}'?")
+            if confirm:
+                account_database[username] = [email, new_user_password]
+                record_accounts()
+                messagebox.showinfo("Success", "Password changed successfully!")
+                
+                forget_username_var.set("")
+                forget_new_password_var.set("")
+                admin_password_var.set("")
+                forget_error_var.set("")
+                
+                navigate_to(login_screen)
+            return
+    forget_error_var.set("User not found")
+    
+def record_accounts():
+    with open(ACCOUNTS_FILE, "w") as file:
+        json.dump(account_database, file, indent=4)
+
+# ==========================================
+# AUTHENTICATION VISUAL INTERFACES
+# ==========================================
+def login_screen():
+    container = tb.Frame(content_frame, padding=30)
+    container.pack(expand=True)
+
+    current_theme = root.style.theme.name
+    heading_fg = "white" if current_theme in ["darkly", "superhero"] else PSA_HEADER_BLUE
+
+    tb.Label(container, text="Error Collection System", font=("Helvetica", 14, "italic"), foreground="grey").pack(pady=(0, 5))
+    tb.Label(container, text="User Login Portal", font=("Helvetica", 22, "bold"), foreground=heading_fg).pack(pady=(0, 25))
+
+    tb.Label(container, text="Username / Email: ", font=("Helvetica", 11)).pack(anchor="w", pady=(5, 2))
+    ent_user = tb.Entry(container, textvariable=username_var, width=42)
+    ent_user.pack(pady=5, fill="x")
+
+    tb.Label(container, text="Password: ", font=("Helvetica", 11)).pack(anchor="w", pady=(5, 2))
+    ent_pass = tb.Entry(container, textvariable=password_var, show="*", width=42)
+    ent_pass.pack(pady=5, fill="x")
+
+    err_lbl = tb.Label(container, textvariable=login_error_var, bootstyle="danger", font=("Helvetica", 10, "bold"))
+    err_lbl.pack(pady=5)
+
+    btn_row = tb.Frame(container)
+    btn_row.pack(fill="x", pady=15)
+
+    login_btn = LiftedRoundedButton(btn_row, text="Sign In", image=None, command=verify_user_n_passcode, variant="primary", width=350, height=45)
+    login_btn.pack(pady=5, fill="x")
+
+    links_row = tb.Frame(container)
+    links_row.pack(fill="x", pady=5)
+    tb.Button(links_row, text="Create Account", bootstyle="link", command=lambda: navigate_to(signup_screen)).pack(side=LEFT)
+    tb.Button(links_row, text="Forgot Password?", bootstyle="link", command=lambda: navigate_to(forget_screen)).pack(side=RIGHT)
+
+def signup_screen():
+    container = tb.Frame(content_frame, padding=30)
+    container.pack(expand=True)
+
+    current_theme = root.style.theme.name
+    heading_fg = "white" if current_theme in ["darkly", "superhero"] else PSA_HEADER_BLUE
+
+    tb.Label(container, text="User Registration", font=("Helvetica", 22, "bold"), foreground=heading_fg).pack(pady=(0, 25))
+
+    tb.Label(container, text="Enter Username", font=("Helvetica", 11)).pack(anchor="w", pady=(5, 2))
+    tb.Entry(container, textvariable=new_username_var, width=42).pack(pady=5, fill="x")
+
+    tb.Label(container, text="Enter Email Address", font=("Helvetica", 11)).pack(anchor="w", pady=(5, 2))
+    tb.Entry(container, textvariable=new_email_var, width=42).pack(pady=5, fill="x")
+
+    tb.Label(container, text="Enter Password", font=("Helvetica", 11)).pack(anchor="w", pady=(5, 2))
+    tb.Entry(container, textvariable=new_password_var, show="*", width=42).pack(pady=5, fill="x")
+
+    tb.Label(container, text="Confirm Password", font=("Helvetica", 11)).pack(anchor="w", pady=(5, 2))
+    tb.Entry(container, textvariable=confirm_new_password_var, show="*", width=42).pack(pady=5, fill="x")
+
+    tb.Label(container, textvariable=signup_error_var, bootstyle="danger", font=("Helvetica", 10, "bold")).pack(pady=5)
+
+    btn_signup = LiftedRoundedButton(container, text="Register Account", image=None, command=add_account, variant="primary", width=350, height=45)
+    btn_signup.pack(pady=10, fill="x")
+
+    tb.Button(container, text="Back to Login Screen", bootstyle="secondary-link", command=lambda: navigate_to(login_screen)).pack()
+
+def forget_screen():
+    container = tb.Frame(content_frame, padding=30)
+    container.pack(expand=True)
+
+    current_theme = root.style.theme.name
+    heading_fg = "white" if current_theme in ["darkly", "superhero"] else PSA_HEADER_BLUE
+
+    tb.Label(container, text="Account Password Reset", font=("Helvetica", 22, "bold"), foreground=heading_fg).pack(pady=(0, 25))
+
+    tb.Label(container, text="Target Account Username/Email", font=("Helvetica", 11)).pack(anchor="w", pady=(5, 2))
+    tb.Entry(container, textvariable=forget_username_var, width=42).pack(pady=5, fill="x")
+
+    tb.Label(container, text="Target New Password", font=("Helvetica", 11)).pack(anchor="w", pady=(5, 2))
+    tb.Entry(container, textvariable=forget_new_password_var, show="*", width=42).pack(pady=5, fill="x")
+
+    tb.Label(container, text="Admin Approval Credentials Key", font=("Helvetica", 11)).pack(anchor="w", pady=(5, 2))
+    tb.Entry(container, textvariable=admin_password_var, show="*", width=42).pack(pady=5, fill="x")
+
+    tb.Label(container, textvariable=forget_error_var, bootstyle="danger", font=("Helvetica", 10, "bold")).pack(pady=5)
+
+    btn_reset = LiftedRoundedButton(container, text="Override Password", image=None, command=change_password, variant="primary", width=350, height=45)
+    btn_reset.pack(pady=10, fill="x")
+
+    tb.Button(container, text="Back to Login Screen", bootstyle="secondary-link", command=lambda: navigate_to(login_screen)).pack()
+
 # ==========================================
 # SQL PERSISTENCE LOGIC
 # ==========================================
@@ -479,14 +704,7 @@ def save_discrepancy_to_db(registry_num, error_type, explanation, field_name, or
             INSERT INTO discrepancy_entries (report_id, cert_type, explanation, error_field, original_value, revised_value, modified_by)
             VALUES ((SELECT MAX(report_id) FROM discrepancy_report), %s, %s, %s, %s, %s, %s)
         """
-        cursor.execute(entry_query, (
-            current_cert_type, 
-            explanation, 
-            field_name, 
-            original_val, 
-            revised_val, 
-            ACTIVE_EMPLOYEE_ID
-        ))
+        cursor.execute(entry_query, (current_cert_type, explanation, field_name, original_val, revised_val, ACTIVE_EMPLOYEE_ID))
         
         conn.commit()
         return True
@@ -774,7 +992,6 @@ def dispatch_choice():
     elif cert_choice == "":
         messagebox.showwarning("Warning", "Please select a Certificate Type first.")
 
-
 # ==========================================
 # ACCESSIBILITY CONFIGURATION MENU
 # ==========================================
@@ -785,7 +1002,6 @@ def accessibility_screen():
 
     BTN_W = 260
     BTN_H = 50
-
     current_theme = root.style.theme.name
     heading_fg = "white" if current_theme in ["darkly", "superhero"] else PSA_HEADER_BLUE
 
@@ -797,14 +1013,9 @@ def accessibility_screen():
     row1 = tb.Frame(container)
     row1.pack(fill="x", pady=(0, 20), padx=40)
 
-    light_but = LiftedRoundedButton(row1, text="Light Mode", image=None, command=lightmode, variant="default", width=BTN_W, height=BTN_H)
-    light_but.pack(side=LEFT, padx=10)
-
-    dark_but = LiftedRoundedButton(row1, text="Dark Mode", image=None, command=darkmode, variant="default", width=BTN_W, height=BTN_H)
-    dark_but.pack(side=LEFT, padx=10)
-
-    grey_but = LiftedRoundedButton(row1, text="Gray Mode", image=None, command=greymode, variant="default", width=BTN_W, height=BTN_H)
-    grey_but.pack(side=LEFT, padx=10)
+    LiftedRoundedButton(row1, text="Light Mode", image=None, command=lightmode, variant="default", width=BTN_W, height=BTN_H).pack(side=LEFT, padx=10)
+    LiftedRoundedButton(row1, text="Dark Mode", image=None, command=darkmode, variant="default", width=BTN_W, height=BTN_H).pack(side=LEFT, padx=10)
+    LiftedRoundedButton(row1, text="Gray Mode", image=None, command=greymode, variant="default", width=BTN_W, height=BTN_H).pack(side=LEFT, padx=10)
 
     # --- ROW 2: GENERAL TEXT SIZE ---
     lbl2 = tb.Label(container, text="General Text Size", font=("Helvetica", 16, "bold"), foreground=heading_fg)
@@ -814,11 +1025,8 @@ def accessibility_screen():
     row2 = tb.Frame(container)
     row2.pack(fill="x", pady=(0, 20), padx=40)
 
-    inc_font_but = LiftedRoundedButton(row2, text="Increase Font Size (+)", image=None, command=increase_font, variant="default", width=BTN_W, height=BTN_H)
-    inc_font_but.pack(side=LEFT, padx=10)
-
-    dec_font_but = LiftedRoundedButton(row2, text="Decrease Font Size (-)", image=None, command=decrease_font, variant="default", width=BTN_W, height=BTN_H)
-    dec_font_but.pack(side=LEFT, padx=10)
+    LiftedRoundedButton(row2, text="Increase Font Size (+)", image=None, command=increase_font, variant="default", width=BTN_W, height=BTN_H).pack(side=LEFT, padx=10)
+    LiftedRoundedButton(row2, text="Decrease Font Size (-)", image=None, command=decrease_font, variant="default", width=BTN_W, height=BTN_H).pack(side=LEFT, padx=10)
 
     # --- ROW 3: AUDIT LOG TEXT SIZE ---
     lbl3 = tb.Label(container, text="Audit Log Text Size", font=("Helvetica", 16, "bold"), foreground=heading_fg)
@@ -828,22 +1036,15 @@ def accessibility_screen():
     row3 = tb.Frame(container)
     row3.pack(fill="x", pady=(0, 20), padx=40)
 
-    inc_table_but = LiftedRoundedButton(row3, text="Increase Table Font (+)", image=None, command=increase_table_font, variant="default", width=BTN_W, height=BTN_H)
-    inc_table_but.pack(side=LEFT, padx=10)
-
-    dec_table_but = LiftedRoundedButton(row3, text="Decrease Table Font (-)", image=None, command=decrease_table_font, variant="default", width=BTN_W, height=BTN_H)
-    dec_table_but.pack(side=LEFT, padx=10)
+    LiftedRoundedButton(row3, text="Increase Table Font (+)", image=None, command=increase_table_font, variant="default", width=BTN_W, height=BTN_H).pack(side=LEFT, padx=10)
+    LiftedRoundedButton(row3, text="Decrease Table Font (-)", image=None, command=decrease_table_font, variant="default", width=BTN_W, height=BTN_H).pack(side=LEFT, padx=10)
 
     # --- ROW 4: SYSTEM COMMAND ACTIONS ---
     row4 = tb.Frame(container)
     row4.pack(fill="x", pady=(30, 0), padx=40)
 
-    reset_but = LiftedRoundedButton(row4, text="Reset Settings", image=None, command=reset_settings, variant="primary", width=BTN_W, height=BTN_H)
-    reset_but.pack(side=LEFT, padx=10)
-
-    back_menu_but = LiftedRoundedButton(row4, text="Back to Main Menu", image=None, command=lambda: navigate_to(main_menu_screen), variant="muted_danger", width=BTN_W, height=BTN_H)
-    back_menu_but.pack(side=LEFT, padx=10)
-
+    LiftedRoundedButton(row4, text="Reset Settings", image=None, command=reset_settings, variant="primary", width=BTN_W, height=BTN_H).pack(side=LEFT, padx=10)
+    LiftedRoundedButton(row4, text="Back to Main Menu", image=None, command=lambda: navigate_to(main_menu_screen), variant="muted_danger", width=BTN_W, height=BTN_H).pack(side=LEFT, padx=10)
 
 # =====================================================================
 # ENTRY SYSTEM CONTAINER MAIN WINDOW
@@ -865,12 +1066,8 @@ def entry_system_screen():
     row_btn = tb.Frame(container)
     row_btn.grid(row=1, column=0, columnspan=2, pady=40)
 
-    close_but = LiftedRoundedButton(row_btn, text="Cancel Workflow", image=None, command=lambda: navigate_to(main_menu_screen), variant="default", width=220, height=45)
-    close_but.pack(side=LEFT, padx=15)
-
-    test_but = LiftedRoundedButton(row_btn, text="Next", image=None, command=dispatch_choice, variant="primary", width=220, height=45)
-    test_but.pack(side=LEFT, padx=15)
-
+    LiftedRoundedButton(row_btn, text="Cancel Workflow", image=None, command=lambda: navigate_to(main_menu_screen), variant="default", width=220, height=45).pack(side=LEFT, padx=15)
+    LiftedRoundedButton(row_btn, text="Next", image=None, command=dispatch_choice, variant="primary", width=220, height=45).pack(side=LEFT, padx=15)
 
 # ==========================================
 # OBJECT-ORIENTED AUDIT LOGS IMPLEMENTATION
@@ -878,7 +1075,6 @@ def entry_system_screen():
 class AuditLogPage(tb.Frame):
     def __init__(self, parent, controller, show_enter_new=False):
         super().__init__(parent)
-
         titlefont = ("Helvetica", 18, "bold")
         ourfont = ("Helvetica", 12)
 
@@ -894,12 +1090,7 @@ class AuditLogPage(tb.Frame):
         utility_frame = tb.Frame(headerframe)
         utility_frame.pack(fill="x", pady=(10, 0))
 
-        tb.Button(
-            utility_frame,
-            text="Refresh View",
-            bootstyle="outline-secondary",
-            command=self.refresh_table
-        ).pack(side=LEFT, padx=(0, 20))
+        tb.Button(utility_frame, text="Refresh View", bootstyle="outline-secondary", command=self.refresh_table).pack(side=LEFT, padx=(0, 20))
         
         tb.Label(utility_frame, text="🔍 Search: ", font=("Helvetica", 11)).pack(side=LEFT)
         self.search_var = tb.StringVar()
@@ -910,7 +1101,6 @@ class AuditLogPage(tb.Frame):
         
         tableframe = tb.Frame(mainframe)
         tableframe.pack(fill="both", expand=True, padx=20, pady=10)
-
         tableframe.grid_rowconfigure(0, weight=1)
         tableframe.grid_columnconfigure(0, weight=1)
 
@@ -927,25 +1117,13 @@ class AuditLogPage(tb.Frame):
         self.btn_row.pack(fill="x", padx=20, pady=(0, 15))
 
         self.back_menu_cnv = LiftedRoundedButton(
-            self.btn_row,
-            text="Back to Main Menu",
-            image=None,
-            command=lambda: navigate_to(main_menu_screen),
-            variant="muted_danger",
-            width=200,
-            height=40,
-            text_size=11
+            self.btn_row, text="Back to Main Menu", image=None, command=lambda: navigate_to(main_menu_screen),
+            variant="muted_danger", width=200, height=40, text_size=11
         )
         self.back_menu_cnv.pack(side=LEFT)
 
         if show_enter_new:
-            tb.Button(
-                self.btn_row,
-                text="➕ Enter New Record",
-                bootstyle="primary",
-                command=lambda: navigate_to(entry_system_screen)
-            ).pack(side=RIGHT)
-
+            tb.Button(self.btn_row, text="➕ Enter New Record", bootstyle="primary", command=lambda: navigate_to(entry_system_screen)).pack(side=RIGHT)
         self.refresh_table()
 
     def refresh_table(self):
@@ -971,7 +1149,6 @@ class AuditLogPage(tb.Frame):
     def execute_live_filter(self, *args):
         global all_fetched_audit_rows
         query = self.search_var.get().strip().lower()
-        
         if not query:
             self.render_table_rows(all_fetched_audit_rows)
             return
@@ -981,7 +1158,6 @@ class AuditLogPage(tb.Frame):
             row_as_strings = [str(cell).lower() for cell in row]
             if any(query in cell_str for cell_str in row_as_strings):
                 filtered_results.append(row)
-                
         self.render_table_rows(filtered_results)
 
 
@@ -991,7 +1167,6 @@ def call_audit_logs_view(show_enter_new=False):
     page_instance.pack(fill="both", expand=True)
     current_active_page_ref = page_instance  
     apply_font_sizes()                       
-
 
 # ==========================================
 # MODERN FLAT TWO-COLUMN MAIN MENU GRID
@@ -1029,15 +1204,8 @@ def main_menu_screen():
     main_container.rowconfigure(0, weight=1)
 
     btn_create = LiftedRoundedButton(
-        main_container, 
-        text="\nNew Entry", 
-        image=plus_icon,
-        compound="top",
-        command=lambda: navigate_to(entry_system_screen),
-        width=320,
-        height=200,
-        variant="default",
-        text_size=20
+        main_container, text="\nNew Entry", image=plus_icon, compound="top",
+        command=lambda: navigate_to(entry_system_screen), width=320, height=200, variant="default", text_size=20
     )
     btn_create.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
 
@@ -1048,28 +1216,14 @@ def main_menu_screen():
     right_sub_container.rowconfigure(1, weight=1, uniform="right_rows")
 
     btn_logs = LiftedRoundedButton(
-        right_sub_container, 
-        text="     View Logs", 
-        image=paper_icon,
-        compound="left",
-        command=lambda: navigate_to(call_audit_logs_view, show_enter_new=False),
-        width=320,
-        height=90,
-        variant="default",
-        text_size=18
+        right_sub_container, text="     View Logs", image=paper_icon, compound="left",
+        command=lambda: navigate_to(call_audit_logs_view, show_enter_new=False), width=320, height=90, variant="default", text_size=18
     )
     btn_logs.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
 
     btn_settings = LiftedRoundedButton(
-        right_sub_container, 
-        text="         Settings and\n         Accessibility", 
-        image=gear_icon,
-        compound="left",
-        command=lambda: navigate_to(accessibility_screen),
-        width=320,
-        height=90,
-        variant="default",
-        text_size=18
+        right_sub_container, text="         Settings and\n         Accessibility", image=gear_icon, compound="left",
+        command=lambda: navigate_to(accessibility_screen), width=320, height=90, variant="default", text_size=18
     )
     btn_settings.grid(row=1, column=0, sticky="nsew", padx=20, pady=20)
 
@@ -1077,9 +1231,8 @@ def main_menu_screen():
     main_container.img_ref2 = paper_icon
     main_container.img_ref3 = gear_icon
 
-
-# Application run configurations
-main_menu_screen()
+# Application Entry Point Redirect
+navigate_to(login_screen)
 apply_font_sizes()
 
 root.mainloop()
