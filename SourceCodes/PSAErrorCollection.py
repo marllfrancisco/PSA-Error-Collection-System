@@ -22,7 +22,7 @@ DB_CONFIG = {
     'database': 'ecorrectdb'
 }
 
-ACCOUNTS_FILE = "accounts.json"
+ACCOUNTS_FILE = "SourceCodes/accounts.json"
 EMPLOYEE_LOGS_FILE = "employee_logs.json"
 
 # State Tracking Engine Cache
@@ -118,6 +118,11 @@ def fetch_latest_audit_rows():
 # ==========================================
 # GUI MAIN APPLICATION INITIALIZATION
 # ==========================================
+# Force the application to be DPI-aware so Windows stops trying to "help" scale the window
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+except Exception:
+    pass
 
 # 1. Get the absolute directory to make paths bulletproof
 base_dir = os.path.dirname(os.path.abspath(__file__)) 
@@ -150,6 +155,15 @@ PSA_HEADER_BLUE = "#0066cc"
 DEFAULT_TITLE_SIZE = 25
 DEFAULT_BODY_SIZE = 11
 MAX_IMAGE_TABLE_SIZE = 11  
+
+# Universal UI Scaling Configuration
+# Adjust this scale factor (e.g., 0.8, 1.0, 1.2) if the app looks too big or too small
+UI_SCALE = 0.8 
+
+# Use these variables for ALL button fonts
+FONT_BODY = int(11 * UI_SCALE)
+FONT_BUTTON = int(14 * UI_SCALE)
+FONT_TITLE = int(22 * UI_SCALE)
 
 font_size_title = DEFAULT_TITLE_SIZE
 font_size_default = DEFAULT_BODY_SIZE
@@ -233,8 +247,10 @@ class LiftedRoundedButton(tb.Canvas):
         self.delete("all")
         w = self.winfo_width()
         h = self.winfo_height()
-        if w < 10 or h < 10:
-            return
+        # If the widget hasn't been placed yet, use a default size 
+        # instead of returning/quitting.
+        if w < 10: w = 100
+        if h < 10: h = 50
 
         radius = 35  
         
@@ -315,6 +331,7 @@ class LiftedRoundedButton(tb.Canvas):
         center_x = (cx1 + cx2) / 2
         center_y = (cy1 + cy2) / 2
 
+        
         if self.image:
             if self.compound == "top":
                 self.create_image(center_x, center_y - 22, image=self.image)
@@ -329,7 +346,7 @@ class LiftedRoundedButton(tb.Canvas):
                 self.create_image(start_x + (img_w / 2), center_y, image=self.image)
                 self.create_text(start_x + img_w + spacing, center_y, text=self.text, font=("Helvetica", self.text_size, "bold"), fill=text_color, anchor="w", justify=LEFT, width=w - (start_x + img_w + 10))
         else:
-            self.create_text(center_x, center_y, text=self.text, font=("Helvetica", self.text_size, "bold"), fill=text_color, justify=CENTER, width=w - 20)
+            self.create_text(center_x, center_y, text=self.text, font=("Helvetica", FONT_BUTTON, "bold"), fill=text_color, justify=CENTER, width=w - 20)
 
     def create_rounded_rect(self, x1, y1, x2, y2, r, **kwargs):
         if r == 0:
@@ -456,20 +473,20 @@ Title.pack(fill="x")
 root.style.configure("NavFrame.TFrame", background=PSA_HEADER_BLUE, borderwidth=0, relief=FLAT)
 nav_frame = tb.Frame(root, style="NavFrame.TFrame", height=45, borderwidth=0, relief=FLAT)
 
-nav_home = LiftedRoundedButton(nav_frame, text="Home Menu", image=None, command=lambda: navigate_to(main_menu_screen), variant="navbar_item", width=140, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
+nav_home = LiftedRoundedButton(nav_frame, text="Home Menu", image=None, command=lambda: navigate_to(main_menu_screen), variant="navbar_item", width=140+80, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
 nav_home.pack(side=LEFT)
 
-nav_logs = LiftedRoundedButton(nav_frame, text="View Audit Logs", image=None, command=lambda: navigate_to(call_audit_logs_view, show_enter_new=False), variant="navbar_item", width=140, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
+nav_logs = LiftedRoundedButton(nav_frame, text="View Audit Logs", image=None, command=lambda: navigate_to(call_audit_logs_view, show_enter_new=False), variant="navbar_item", width=140+80, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
 nav_logs.pack(side=LEFT)
 
 nav_emp_logs = LiftedRoundedButton(nav_frame, text="Employee Logs", image=None, command=lambda: navigate_to(call_employee_logs_view), variant="navbar_item", width=140, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
 nav_create_acc = LiftedRoundedButton(nav_frame, text="Create Account", image=None, command=lambda: navigate_to(signup_screen), variant="navbar_item", width=140, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
 nav_requests = LiftedRoundedButton(nav_frame, text="Requests", image=None, command=lambda: navigate_to(call_requests_view), variant="navbar_item", width=140, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
 
-nav_settings = LiftedRoundedButton(nav_frame, text="Accessibility Settings", image=None, command=lambda: navigate_to(accessibility_screen), variant="navbar_item", width=180, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
+nav_settings = LiftedRoundedButton(nav_frame, text="Accessibility Settings", image=None, command=lambda: navigate_to(accessibility_screen), variant="navbar_item", width=180+80, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
 nav_settings.pack(side=LEFT)
 
-nav_logout = LiftedRoundedButton(nav_frame, text="Logout", image=None, command=lambda: confirm_logout(), variant="navbar_item", width=120, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
+nav_logout = LiftedRoundedButton(nav_frame, text="Logout", image=None, command=lambda: confirm_logout(), variant="navbar_item", width=120+80, height=45, text_size=11, bg_override=PSA_HEADER_BLUE)
 nav_logout.pack(side=RIGHT)
 
 def confirm_logout():
@@ -1212,10 +1229,10 @@ def entry_system_screen():
     btn_frame = tb.Frame(container)
     btn_frame.pack(pady=20)
 
-    btn_next = LiftedRoundedButton(btn_frame, text="Proceed to Form", image=None, command=route_form, variant="primary", width=160, height=45)
+    btn_next = LiftedRoundedButton(btn_frame, text="Proceed to Form", image=None, command=route_form, variant="primary", width=160+80, height=45)
     btn_next.pack(side=LEFT, padx=10)
 
-    btn_back = LiftedRoundedButton(btn_frame, text="Main Menu", image=None, command=lambda: navigate_to(main_menu_screen), variant="default", width=160, height=45)
+    btn_back = LiftedRoundedButton(btn_frame, text="Main Menu", image=None, command=lambda: navigate_to(main_menu_screen), variant="default", width=160+80, height=45)
     btn_back.pack(side=LEFT, padx=10)
 
 def call_audit_logs_view(show_enter_new=False):
@@ -1234,10 +1251,10 @@ def call_audit_logs_view(show_enter_new=False):
     bottom_bar = tb.Frame(container, padding=(0, 10, 0, 0))
     bottom_bar.pack(fill="x", side=BOTTOM)
     
-    LiftedRoundedButton(bottom_bar, text="Back to Main Menu", image=None, command=lambda: navigate_to(main_menu_screen), variant="default", width=180, height=45, text_size=12).pack(side=LEFT, padx=5)
+    LiftedRoundedButton(bottom_bar, text="Back to Main Menu", image=None, command=lambda: navigate_to(main_menu_screen), variant="default", width=180+80, height=45, text_size=12).pack(side=LEFT, padx=5)
     
     if show_enter_new:
-        LiftedRoundedButton(top_bar, text="Log Another Entry", image=None, command=lambda: navigate_to(entry_system_screen), variant="primary", width=180, height=40, text_size=11).pack(side=RIGHT, padx=5)
+        LiftedRoundedButton(top_bar, text="Log Another Entry", image=None, command=lambda: navigate_to(entry_system_screen), variant="primary", width=180+80, height=40, text_size=11).pack(side=RIGHT, padx=5)
 
     all_fetched_audit_rows = fetch_latest_audit_rows()
     
@@ -1344,8 +1361,8 @@ def accessibility_screen():
     ctrl_row = tb.Frame(container)
     ctrl_row.pack(fill="x", side=BOTTOM, pady=(10, 0))
     
-    LiftedRoundedButton(ctrl_row, text="Reset to Factory Defaults", image=None, command=reset_settings, variant="muted_danger", width=220, height=45).pack(side=LEFT, padx=5)
-    LiftedRoundedButton(ctrl_row, text="Back to Home Menu", image=None, command=lambda: navigate_to(main_menu_screen), variant="default", width=180, height=45, text_size=12).pack(side=LEFT, padx=5)
+    LiftedRoundedButton(ctrl_row, text="Reset to Factory Defaults", image=None, command=reset_settings, variant="muted_danger", width=220+80, height=45).pack(side=LEFT, padx=5)
+    LiftedRoundedButton(ctrl_row, text="Back to Home Menu", image=None, command=lambda: navigate_to(main_menu_screen), variant="default", width=180+80, height=45, text_size=12).pack(side=LEFT, padx=5)
 
     tb.Label(container, text="Control and Diagnostics Center", font=("Helvetica", 22, "bold"), foreground=heading_fg).pack(anchor="w", pady=(0, 10))
 
@@ -1359,9 +1376,9 @@ def accessibility_screen():
     theme_btn_row = tb.Frame(sect_theme)
     theme_btn_row.pack(anchor="w", pady=5)
 
-    LiftedRoundedButton(theme_btn_row, text="Light Theme", image=None, command=lightmode, variant="default", width=140, height=45).pack(side=LEFT, padx=5)
-    LiftedRoundedButton(theme_btn_row, text="Dark Mode", image=None, command=darkmode, variant="accent", width=140, height=45).pack(side=LEFT, padx=5)
-    LiftedRoundedButton(theme_btn_row, text="Slate High Contrast", image=None, command=greymode, variant="grey_button", width=180, height=45).pack(side=LEFT, padx=5)
+    LiftedRoundedButton(theme_btn_row, text="Light Theme", image=None, command=lightmode, variant="default", width=140+80, height=45).pack(side=LEFT, padx=5)
+    LiftedRoundedButton(theme_btn_row, text="Dark Mode", image=None, command=darkmode, variant="accent", width=140+80, height=45).pack(side=LEFT, padx=5)
+    LiftedRoundedButton(theme_btn_row, text="Slate High Contrast", image=None, command=greymode, variant="grey_button", width=180+80, height=45).pack(side=LEFT, padx=5)
 
     sect_font = tb.Labelframe(container, text=" Font Resizing & Scale Adaptability Engine ", padding=15)
     sect_font.pack(fill="x", pady=5)
@@ -1373,8 +1390,8 @@ def accessibility_screen():
     font_btn_row = tb.Frame(sect_font)
     font_btn_row.pack(anchor="w", pady=5)
 
-    LiftedRoundedButton(font_btn_row, text="A+  Enlarge App Font", image=None, command=increase_font, variant="default", width=180, height=45, text_size=12).pack(side=LEFT, padx=5)
-    LiftedRoundedButton(font_btn_row, text="A-  Shrink App Font", image=None, command=decrease_font, variant="default", width=180, height=45, text_size=12).pack(side=LEFT, padx=5)
+    LiftedRoundedButton(font_btn_row, text="A+  Enlarge App Font", image=None, command=increase_font, variant="default", width=180+80, height=45, text_size=12).pack(side=LEFT, padx=5)
+    LiftedRoundedButton(font_btn_row, text="A-  Shrink App Font", image=None, command=decrease_font, variant="default", width=180+80, height=45, text_size=12).pack(side=LEFT, padx=5)
 
     lbl_table = tb.Label(sect_font, text="Tabular Metadata Rows Resizing engine:", font=("Helvetica", 11, "bold"), foreground=PSA_HEADER_BLUE)
     lbl_table.pack(anchor="w", pady=(10, 5))
@@ -1383,8 +1400,8 @@ def accessibility_screen():
     table_btn_row = tb.Frame(sect_font)
     table_btn_row.pack(anchor="w", pady=5)
 
-    LiftedRoundedButton(table_btn_row, text="Increase Rows Font", image=None, command=increase_table_font, variant="default", width=180, height=45, text_size=11).pack(side=LEFT, padx=5)
-    LiftedRoundedButton(table_btn_row, text="Decrease Rows Font", image=None, command=decrease_table_font, variant="default", width=180, height=45, text_size=11).pack(side=LEFT, padx=5)
+    LiftedRoundedButton(table_btn_row, text="Increase Rows Font", image=None, command=increase_table_font, variant="default", width=180+80, height=45, text_size=11).pack(side=LEFT, padx=5)
+    LiftedRoundedButton(table_btn_row, text="Decrease Rows Font", image=None, command=decrease_table_font, variant="default", width=180+80, height=45, text_size=11).pack(side=LEFT, padx=5)
     
     if current_theme in ["darkly", "superhero"]:
         for lbl in accessibility_labels:
@@ -1395,6 +1412,9 @@ def main_menu_screen():
     main_container = tb.Frame(content_frame)
     main_container.pack(expand=True, fill="both", padx=40, pady=20)
     
+    # ADD THIS LINE: It forces the window to calculate sizes immediately
+    main_container.update_idletasks()
+
     # Try loading a unique icon file for each of the 6 buttons
     # --- CRISP IMAGE LOADING WITH PILLOW ---
     try:
@@ -1497,7 +1517,7 @@ def main_menu_screen():
 
         btn_create = LiftedRoundedButton(
             main_container, text="Create New Entry Log", image=icon1, compound="top",
-            command=lambda: navigate_to(entry_system_screen), width=320, height=200, variant="default", text_size=22
+            command=lambda: navigate_to(entry_system_screen), variant="default", text_size=22
         )
         btn_create.image_cache = icon1  
         btn_create.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
