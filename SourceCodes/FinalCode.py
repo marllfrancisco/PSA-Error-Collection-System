@@ -9,6 +9,8 @@ from ttkbootstrap.constants import *
 from ttkbootstrap.widgets.tableview import Tableview  
 from tkinter import messagebox, StringVar
 from datetime import datetime
+import ctypes
+from PIL import Image, ImageTk
 
 # ==========================================
 # DATABASE & FILE STORAGE SETUP
@@ -16,7 +18,7 @@ from datetime import datetime
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',          
-    'password': '',          
+    'password': 'ruiiumaru',          
     'database': 'ecorrectdb'
 }
 
@@ -116,12 +118,29 @@ def fetch_latest_audit_rows():
 # ==========================================
 # GUI MAIN APPLICATION INITIALIZATION
 # ==========================================
+# WINDOW ICON CONFIGURATION
+# 1. Get the absolute directory
+base_dir = os.path.dirname(os.path.abspath(__file__)) 
+
+# 2. Point to the NEW .ico file
+icon_path = os.path.join(base_dir, "images", "psa.ico")
+
+# 3. Create the window WITHOUT the iconphoto parameter
 root = tb.Window(themename="flatly")
+
+# 4. Apply the .ico file using the native Windows bitmap method
+try:
+    root.iconbitmap(icon_path)
+except Exception as e:
+    print(f"Failed to load bitmap: {e}")
+
+# 5. Rest of your window configuration
+root.update()
 width = root.winfo_screenwidth()  
 height = root.winfo_screenheight()
-root.geometry("%dx%d" % (width, height))
-root.title("PSA Error Collection System")
-root.state('zoomed') 
+root.geometry("%dx%d" % (width, height))    
+root.title("PSA Error Collection")
+root.state('zoomed')
 
 # COLOR SCHEME CONFIGURATION
 PSA_BLUE = "#4d73ff"
@@ -135,6 +154,19 @@ font_size_title = DEFAULT_TITLE_SIZE
 font_size_default = DEFAULT_BODY_SIZE
 font_size_table = MAX_IMAGE_TABLE_SIZE  
 
+'''print(f"DEBUG: Looking for .ico exactly here: {icon_path}")
+print(f"DEBUG: Does file exist? {os.path.exists(icon_path)}")
+
+# 3. Apply the icon using iconbitmap
+if os.path.exists(icon_path):
+    try:
+        # iconbitmap bypasses Tkinter's image engine and talks directly to Windows
+        root.iconbitmap(default=icon_path)
+    except Exception as e:
+        print(f"Failed to load .ico: {e}")
+else:
+    print("CRITICAL: psa.ico not found! Make sure you saved the converted file here.")
+'''
 # IMAGE CONFIGURATION SCALE FACTOR
 icon_scale_factor = 20
 
@@ -318,22 +350,17 @@ class LiftedRoundedButton(tb.Canvas):
         else:
             self.create_text(center_x, center_y, text=self.text, font=("Helvetica", self.text_size, "bold"), fill=text_color, justify=CENTER, width=w - 20)
 
+    # REMOVES THE WHITE GLITCHING BORDER BUG AROUND ROUNDED CARDS BY USING POLYGON INSTEAD OF OVALS/ARCS
     def create_rounded_rect(self, x1, y1, x2, y2, r, **kwargs):
         if r == 0:
             return self.create_rectangle(x1, y1, x2, y2, **kwargs)
+        
+        # Correctly mapped coordinate points for smooth Bezier rounding
         points = [
-            x1+r, y1, x1+r, y1, 
-            x2-r, y1, x2-r, y1, 
-            x2, y1,               
-            x2, y1+r, x2, y1+r, 
-            x2, y2-r, x2, y2-r, 
-            x2, y2, 
-            x2-r, y2, x2-r, y2, 
-            x1+r, y2, x1+r, y2, 
-            x1, y2, 
-            x1, y2-r, x1, y2-r, 
-            x1, y1+r, x1, y1+r, 
-            x1, y1
+            x1+r, y1,  x2-r, y1,  x2, y1,     # Top edge to Top-Right corner
+            x2, y1+r,  x2, y2-r,  x2, y2,     # Right edge to Bottom-Right corner
+            x2-r, y2,  x1+r, y2,  x1, y2,     # Bottom edge to Bottom-Left corner
+            x1, y2-r,  x1, y1+r,  x1, y1      # Left edge to Top-Left corner
         ]
         return self.create_polygon(points, smooth=True, **kwargs)
 
@@ -421,8 +448,15 @@ def decrease_table_font():
         messagebox.showinfo("Font Limit", "Minimum table font size reached.")
 
 try:
-    raw_logo = tb.PhotoImage(file=r"/Users/mac/Desktop/system_image/psa.png")
-    logo_image = raw_logo.subsample(8, 8) 
+    # Use raw string 'r' to prevent escape character issues in Windows file paths
+    raw_img = Image.open(r"SourceCodes\images\psa.png")
+    
+    # Resize the image using high-quality LANCZOS resampling (equivalent to your 1/6th subsample)
+    new_width = raw_img.width // 6
+    new_height = raw_img.height // 6
+    resized_img = raw_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    
+    logo_image = ImageTk.PhotoImage(resized_img)
 except Exception as e:
     logo_image = None
 
@@ -754,6 +788,12 @@ def record_accounts():
 # ==========================================
 # AUTHENTICATION VISUAL INTERFACES
 # ==========================================
+# Enable High DPI awareness for Windows to make fonts/UI crisp
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+except Exception:
+    pass
+
 def login_screen():
     container = tb.Frame(content_frame, padding=30)
     container.pack(expand=True)
@@ -1388,26 +1428,48 @@ def main_menu_screen():
     main_container.pack(expand=True, fill="both", padx=40, pady=20)
     
     # Try loading a unique icon file for each of the 6 buttons
+    # --- CRISP IMAGE LOADING WITH PILLOW ---
     try:
-        raw_icon1 = tb.PhotoImage(file=r"/Users/mac/Desktop/system_image/1.png")
-        icon1 = raw_icon1.subsample(local_icon_scale, local_icon_scale)
-        
-        raw_icon2 = tb.PhotoImage(file=r"/Users/mac/Desktop/system_image/2.png")
-        icon2 = raw_icon2.subsample(local_icon_scale, local_icon_scale)
-        
-        raw_icon3 = tb.PhotoImage(file=r"/Users/mac/Desktop/system_image/3.png")
-        icon3 = raw_icon3.subsample(local_icon_scale, local_icon_scale)
-        
-        raw_icon4 = tb.PhotoImage(file=r"/Users/mac/Desktop/system_image/4.png")
+        img_plus = Image.open(r"SourceCodes\images\1.png")
+        # Simulates subsample(13, 13) cleanly with high-quality anti-aliasing
+        resized_plus = img_plus.resize((img_plus.width // 13, img_plus.height // 13), Image.Resampling.LANCZOS)
+        icon1 = ImageTk.PhotoImage(resized_plus)
+    except Exception as e:
+        print(f"Could not load plus image: {e}")
+        icon1 = None  
+
+    try:
+        img_paper = Image.open(r"SourceCodes\images\2.png")
+        # Simulates subsample(10, 10) cleanly
+        resized_paper = img_paper.resize((img_paper.width // 10, img_paper.height // 10), Image.Resampling.LANCZOS)
+        icon2 = ImageTk.PhotoImage(resized_paper)
+    except Exception as e:
+        print(f"Could not load paper image: {e}")
+        icon2 = None
+
+    try:
+        img_gear = Image.open(r"SourceCodes\images\6.png")
+        resized_gear = img_gear.resize((img_gear.width // 10, img_gear.height // 10), Image.Resampling.LANCZOS)
+        gear = ImageTk.PhotoImage(resized_gear)
+    except Exception as e:
+        print(f"Could not load gear image: {e}")
+        gear = None
+
+    # Pull these out into their own try-except or distinct execution step
+    try:
+        raw_icon4 = tb.PhotoImage(file=r"SourceCodes\images\4.png")
         icon4 = raw_icon4.subsample(local_icon_scale, local_icon_scale)
         
-        raw_icon5 = tb.PhotoImage(file=r"/Users/mac/Desktop/system_image/5.png")
+        raw_icon5 = tb.PhotoImage(file=r"SourceCodes\images\5.png")
         icon5 = raw_icon5.subsample(local_icon_scale, local_icon_scale)
         
-        raw_icon6 = tb.PhotoImage(file=r"/Users/mac/Desktop/system_image/6.png")
+        raw_icon6 = tb.PhotoImage(file=r"SourceCodes\images\3.png")
         icon6 = raw_icon6.subsample(local_icon_scale, local_icon_scale)
     except Exception as e:
-        icon1 = icon2 = icon3 = icon4 = icon5 = icon6 = None
+        print(f"Could not load secondary icons: {e}")
+        icon4 = icon5 = icon6 = None
+    except Exception as e:
+        icon1 = icon2 = gear = icon4 = icon5 = icon6 = None
 
     # DYNAMIC RENDER INTERFACES: ADMIN vs REGULAR EMPLOYEE
     if CURRENT_LOGGED_IN_USER == "admin":
@@ -1433,10 +1495,10 @@ def main_menu_screen():
         btn_logs.grid(row=0, column=1, sticky="nsew", padx=15, pady=15)
 
         btn_emp_logs = LiftedRoundedButton(
-            main_container, text="Security Employee Logs", image=icon3, compound="top",
+            main_container, text="Security Employee Logs", image=gear, compound="top",
             command=lambda: navigate_to(call_employee_logs_view), variant="default", text_size=18
         )
-        btn_emp_logs.image_cache = icon3
+        btn_emp_logs.image_cache = gear
         btn_emp_logs.grid(row=0, column=2, sticky="nsew", padx=15, pady=15)
 
         # Row 1 Elements (Buttons 4, 5, 6)
@@ -1458,7 +1520,7 @@ def main_menu_screen():
             main_container, text="Settings & Accessibility", image=icon6, compound="top",
             command=lambda: navigate_to(accessibility_screen), variant="default", text_size=18
         )
-        btn_settings.image_cache = icon6
+        btn_settings.image_cache = gear
         btn_settings.grid(row=1, column=2, sticky="nsew", padx=15, pady=15)
 
     else:
@@ -1488,7 +1550,7 @@ def main_menu_screen():
         btn_logs.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
 
         btn_settings = LiftedRoundedButton(
-            right_sub_container, text="Settings and Accessibility", image=icon6, compound="left",
+            right_sub_container, text="Settings and Accessibility", image=gear, compound="left",
             command=lambda: navigate_to(accessibility_screen), width=320, height=90, variant="default", text_size=18
         )
         btn_settings.image_cache = icon6
