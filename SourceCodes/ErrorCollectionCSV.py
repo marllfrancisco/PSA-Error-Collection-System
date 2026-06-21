@@ -24,6 +24,7 @@ from datetime import datetime              # Date/time tracking for logs
 import ctypes                              # System-level Windows API calls for DPI scaling
 from PIL import Image, ImageTk             # Image loading and display
 import traceback                           # Detailed error stack trace printing
+import sys                                 # System module (used for PyInstaller and resource resolution)
 
 # ==========================================
 # DATABASE & FILE STORAGE SETUP
@@ -262,19 +263,43 @@ except Exception:
 
 # Get the absolute directory path for reliable file access across all systems
 base_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Construct path to the PSA logo/icon file
-icon_path = os.path.join(base_dir, "images", "psa.ico")
-
-# Create the main application window with "flatly" theme (clean, modern look)
+# Get a resource path resolver that works in normal and bundled (PyInstaller) runs
 root = tb.Window(themename="flatly")
 
-# Load and set the PSA logo as window icon
-if os.path.exists(icon_path):
-    try:
-        root.iconbitmap(icon_path)  # Apply icon to window title bar
-    except Exception as e:
-        print(f"Failed to load bitmap: {e}")
+def resolve_resource(*parts):
+    """Return an absolute path inside the project or inside a PyInstaller
+    bundle. Usage: resolve_resource('images', 'psa.png')"""
+    base = getattr(sys, '_MEIPASS', base_dir)
+    return os.path.join(base, *parts)
+
+# Try to set a window icon in a cross-platform way:
+# - Windows supports .ico via `iconbitmap`
+# - Other platforms (mac/linux) should use `iconphoto` with a PhotoImage
+try:
+    ico_path = resolve_resource('images', 'psa.ico')
+    if os.path.exists(ico_path):
+        try:
+            root.iconbitmap(ico_path)
+        except Exception:
+            # Fallback: try loading ICO via PIL and set as PhotoImage
+            try:
+                img = Image.open(ico_path)
+                icon_photo = ImageTk.PhotoImage(img)
+                root.iconphoto(False, icon_photo)
+            except Exception:
+                print(f"Failed to set window icon from {ico_path}")
+    else:
+        # Try PNG fallback when ICO is not present (common on macOS)
+        png_icon = resolve_resource('images', 'psa.png')
+        if os.path.exists(png_icon):
+            try:
+                img = Image.open(png_icon)
+                icon_photo = ImageTk.PhotoImage(img)
+                root.iconphoto(False, icon_photo)
+            except Exception:
+                print(f"Failed to set window icon from {png_icon}")
+except Exception as e:
+    print(f"Icon setup error: {e}")
 
 # Configure and maximize the main window
 root.update()  # Update window state
@@ -629,11 +654,16 @@ def decrease_table_font():
         messagebox.showinfo("Font Limit", "Minimum table font size reached.")
 
 try:
-    psa_png_path = os.path.join(base_dir, "images", "psa.png")
+    psa_png_path = resolve_resource('images', 'psa.png')
     raw_img = Image.open(psa_png_path)
-    new_width = raw_img.width // 6
-    new_height = raw_img.height // 6
-    resized_img = raw_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    new_width = max(24, raw_img.width // 6)
+    new_height = max(24, raw_img.height // 6)
+    # Use LANCZOS if available (Pillow >=9), otherwise fall back to ANTIALIAS
+    if hasattr(Image, 'Resampling'):
+        resample_filter = Image.Resampling.LANCZOS
+    else:
+        resample_filter = Image.ANTIALIAS
+    resized_img = raw_img.resize((new_width, new_height), resample_filter)
     logo_image = ImageTk.PhotoImage(resized_img)
 except Exception as e:
     print(f"Could not load banner logo: {e}")
