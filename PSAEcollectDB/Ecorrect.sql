@@ -135,13 +135,13 @@ DROP TABLE IF EXISTS `discrepancy_entries`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `discrepancy_entries` (
   `report_id` varchar(20) NOT NULL,
-  `person_name` varchar(255) DEFAULT NULL,
+  `person_name` varchar(50) DEFAULT NULL,
   `cert_type` enum('Birth Certificate','Death Certificate','Marriage Certificate') NOT NULL,
   `explanation` varchar(255) NOT NULL,
   `error_field` varchar(50) NOT NULL,
   `original_value` varchar(255) NOT NULL,
   `revised_value` varchar(255) NOT NULL,
-  `modified_by` varchar(250) NOT NULL,
+  `modified_by` varchar(20) NOT NULL,
   `modified_date` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`report_id`),
   KEY `fk_report_entry` (`report_id`),
@@ -200,7 +200,7 @@ DROP TABLE IF EXISTS `discrepancy_report`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `discrepancy_report` (
   `report_id` varchar(20) NOT NULL,
-  `employee_id` varchar(250) NOT NULL,
+  `employee_id` varchar(20) NOT NULL,
   `registry_number` varchar(20) NOT NULL,
   `cert_type` enum('Birth Certificate','Death Certificate','Marriage Certificate') NOT NULL,
   `status` enum('PENDING','RESOLVED') DEFAULT 'PENDING',

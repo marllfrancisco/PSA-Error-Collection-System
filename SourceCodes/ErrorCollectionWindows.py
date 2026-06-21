@@ -1,5 +1,6 @@
 import re
 import os
+import csv
 import json
 import random
 import mysql.connector
@@ -21,22 +22,50 @@ DB_CONFIG = {
     'password': 'ruiiumaru',          
     'database': 'ecorrectdb'
 }
-
-ACCOUNTS_FILE = "SourceCodes/accounts.json"
+ 
+ACCOUNTS_FILE = "SourceCodes/employee_data.csv"
 EMPLOYEE_LOGS_FILE = "employee_logs.json"
 
 # State Tracking Engine Cache
 CURRENT_LOGGED_IN_USER = "Guest"
 otp_requests_database = {} 
 
-if os.path.exists(ACCOUNTS_FILE):
-    with open(ACCOUNTS_FILE, "r") as file:
-        account_database = json.load(file)
-else:
-    account_database = {
-        "Admin": ["Admin@gmail.com", "123"],
-        "Michael Daitol": ["GelSensei@gmail.com", "1mgelodesu!"]
-    }
+account_database = {}
+
+# 1. Update your loader to handle the file correctly
+def load_accounts():
+    accounts = {}
+    if not os.path.exists(ACCOUNTS_FILE):
+        print("CSV not found, creating default structure.")
+        return {
+            "Admin": {"person_id": "P-1000", "email": "Admin@gmail.com", "password": "123", "created_id": "01/01/2026", "modified_id": "01/01/2026"}
+        }
+
+    with open(ACCOUNTS_FILE, mode="r", newline="", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            # We use employee_id (the row data) as the dictionary key
+            eid = row.pop("employee_id") 
+            accounts[eid] = row
+            print("File Loaded Succesfully)")
+    return accounts
+
+# 2. Populate the global database at startup
+account_database = load_accounts()
+
+def save_accounts_to_csv():
+    """Writes the current account_database dictionary to the CSV file."""
+    with open(ACCOUNTS_FILE, mode="w", newline="", encoding="utf-8") as file:
+        # Define the exact columns your CSV uses
+        fieldnames = ["employee_id", "person_id", "email", "password", "created_id", "modified_id"]
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        
+        writer.writeheader()
+        for eid, data in account_database.items():
+            row = {"employee_id": eid}
+            row.update(data)
+            writer.writerow(row)
+
 
 def log_employee_action(username, action):
     """Logs security lifecycle parameters cleanly into local JSON audit maps"""
@@ -647,23 +676,54 @@ def verify_user_n_passcode():
         navigate_to(main_menu_screen)
         return
 
-    for username, data in account_database.items():
-        email = data[0]
-        password = data[1]
-    
-        if entered_username == email or entered_username == username:
-            if entered_password == password:
-                CURRENT_LOGGED_IN_USER = username
+    # 1. OPTIMIZED: Check if the input is an Employee ID (The key of the dict)
+    if entered_username in account_database:
+        user_data = account_database[entered_username]
+        if entered_password == user_data["password"]:
+            CURRENT_LOGGED_IN_USER = entered_username
+            login_error_var.set("")
+            username_var.set("")
+            password_var.set("")
+            messagebox.showinfo("Success", "Log in successful")
+            navigate_to(main_menu_screen)
+            return
+        else:
+            login_error_var.set("Wrong Password")
+            return
+        
+    # 2. FALLBACK: If not an ID, loop to check if it's an email
+    for employee_id, data in account_database.items():
+        if entered_username == data.get("email"):
+            if entered_password == data["password"]:
+                CURRENT_LOGGED_IN_USER = employee_id
                 login_error_var.set("")
                 username_var.set("")
                 password_var.set("")
-                messagebox.showinfo("Success", f"Welcome back, {username}!")
+                messagebox.showinfo("Success", "Log in successful")
                 navigate_to(main_menu_screen)
                 return
             else:
                 login_error_var.set("Wrong Password")
                 return
+
+    # 3. If neither worked
     login_error_var.set("User not found")
+
+def generate_person_id():
+
+    if not account_database:
+        return "P-10001"
+
+    last_id = max(
+        int(data["person_id"].split("-")[1])
+        for data in account_database.values()
+    )
+
+    return f"P-{last_id + 1}"
+
+def get_current_date():
+
+    return datetime.now().strftime("%Y-%m-%d") 
     
 def add_account():
     new_username = new_username_var.get().strip()
@@ -683,17 +743,27 @@ def add_account():
         signup_error_var.set("Username 'admin' is reserved by the system configuration.")
         return
     
-    for username, data in account_database.items():
-        if new_email == data[0] or new_username.lower() == username.lower():
-            signup_error_var.set("Account already exists with these identifiers.")
+    for data in account_database.values():
+        if new_email == data["email"]:
+            signup_error_var.set(
+                "Email already exists."
+            )
             return
         
-    confirm = messagebox.askyesno("Create Account", f"Do you want to write account '{new_username}' to system cache?")
+    confirm = messagebox.askyesno("Create Account", f"Write account '{new_username}' to CSV?")
     if confirm:
-        account_database[new_username] = [new_email, new_password]
+        # Add to dictionary
+        account_database[new_username] = {
+            "person_id": generate_person_id(),
+            "email": new_email,
+            "password": new_password,
+            "created_id": get_current_date(),
+            "modified_id": get_current_date()
+        }
+        
+        # Save to CSV
+        save_accounts_to_csv()
         record_accounts()
-        log_employee_action(new_username, "account created")
-        messagebox.showinfo("Success", "Account created successfully!")
         
         new_username_var.set("")
         new_email_var.set("")
@@ -705,19 +775,17 @@ def add_account():
 
 def initiate_forgot_password_sequence():
     target_user = forget_username_var.get().strip()
-    if not target_user:
+    if target_user not in account_database:
+        user_data = account_database[target_user]
         forget_error_var.set("Please supply your account username.")
         return
         
     matched_username = None
-    for username, data in account_database.items():
-        if target_user.lower() == username.lower() or target_user.lower() == data[0].lower():
-            matched_username = username
+    for employee_id, data in account_database.items():
+        if target_user == data.get("email"):
+            matched_username = target_user
             break
             
-    if not matched_username:
-        forget_error_var.set("Target identity context not verified inside system.")
-        return
         
     generated_token = f"{random.randint(100000, 999999)}"
     otp_requests_database[matched_username] = {
@@ -760,7 +828,7 @@ def finalize_password_override(target_username):
         forget_error_var.set("Validation parameters mismatch. Passwords must match.")
         return
         
-    account_database[target_username][1] = pwd1
+    account_database[target_username]["password"] = pwd1
     record_accounts()
         
     log_employee_action(target_username, "changed password")
@@ -773,8 +841,35 @@ def finalize_password_override(target_username):
     navigate_to(login_screen)
 
 def record_accounts():
-    with open(ACCOUNTS_FILE, "w") as file:
-        json.dump(account_database, file, indent=4)
+    with open(ACCOUNTS_FILE, "w", newline="", encoding="utf-8") as file:
+
+        fieldnames = [
+            "employee_id",
+            "person_id",
+            "email",
+            "password",
+            "created_id",
+            "modified_id"
+        ]
+
+        writer = csv.DictWriter(
+            file,
+            fieldnames=fieldnames
+        )
+
+        writer.writeheader()
+
+        for employee_id, data in database.items():
+
+            writer.writerow({
+                "employee_id": employee_id,
+                "person_id": data["person_id"],
+                "email": data["email"],
+                "password": data["password"],
+                "created_id": data["created_id"],
+                "modified_id": data["modified_id"]
+            })
+
 
 # ==========================================
 # AUTHENTICATION VISUAL INTERFACES
@@ -985,8 +1080,10 @@ def death_confirm():
         messagebox.showinfo("Cancelled Input", "Your Entry has been Cancelled.")
 
 def birth_confirm():
-    global birth_regEntry, birth_errorType, youEntry, momEntry, dadEntry, borigEntry, bnewEntry, bexplain, cert_choice
+    # Removed momEntry and dadEntry globals since they are no longer used
+    global birth_regEntry, birth_errorType, youEntry, borigEntry, bnewEntry, bexplain, cert_choice
     reg_pattern = r"^\d{4}-\d{7}$"
+    
     if birth_regEntry.get() == "":
         messagebox.showerror("Error", "Please input the proper Registration Number (ex. YYYY-XXXXXXX).")
         return
@@ -999,12 +1096,7 @@ def birth_confirm():
     elif youEntry.get() == "":
         messagebox.showerror("Error", "Please Specify the Document owner's Name")
         return
-    elif momEntry.get() == "":
-        messagebox.showerror("Error", "Please Specify the Mother's Name")
-        return
-    elif dadEntry.get() == "":
-        messagebox.showerror("Error", "Please Specify the Father's Name")
-        return
+    # --- Mother and Father validations removed from here ---
     elif borigEntry.get() == "":
         messagebox.showerror("Error", "Please specify the erroneous value.")
         return
@@ -1014,6 +1106,7 @@ def birth_confirm():
     elif bexplain.get() == "":
         messagebox.showerror("Error", "Please indicate the reason for this change")
         return
+        
     final = messagebox.askyesno("Confirmation", "Are you sure with the information inputted?")
     if final:
         success = save_discrepancy_to_db(
@@ -1029,7 +1122,7 @@ def birth_confirm():
             messagebox.showinfo("Success", "Data successfully saved to MySQL database!")
             navigate_to(call_audit_logs_view, show_enter_new=True)
     else:
-        messagebox.showinfo("Cancelled Input", "Your Entry has been Cancelled.")
+        messagebox.showinfo("Cancelled Input", "Your Entry has been Cancelled.")    
 
 def marriage_confirm():
     global marriage_regEntry, marriage_errorType, applicantEntry, morigEntry, mnewEntry, mexplainEntry, cert_choice
@@ -1076,52 +1169,54 @@ def marriage_confirm():
 # CENTRALIZED SCREEN DRAWING CONTROLLERS
 # =====================================================================
 def birth_cert_screen():
-    global birth_regEntry, youEntry, momEntry, dadEntry, birth_errorType, borigEntry, bnewEntry, bexplain
+    # Removed momEntry and dadEntry globals from the UI constructor
+    global birth_regEntry, youEntry, birth_errorType, borigEntry, bnewEntry, bexplain
     container = tb.Frame(content_frame, padding=30)
     container.pack(expand=True, fill="both")
     container.columnconfigure(1, weight=1)
 
+    # Row 0: Registry Number
     tb.Label(container, text="Registry Number: ", anchor="w").grid(row=0, column=0, sticky="w", pady=8, padx=10)
     birth_regEntry = tb.Entry(container)
     birth_regEntry.grid(row=0, column=1, sticky="ew", pady=8, padx=10)
 
+    # Row 1: Name
     tb.Label(container, text="Name: ", anchor="w").grid(row=1, column=0, sticky="w", pady=8, padx=10)
     youEntry = tb.Entry(container)
     youEntry.grid(row=1, column=1, sticky="ew", pady=8, padx=10)
 
-    tb.Label(container, text="Mother's Maiden Name: ", anchor="w").grid(row=2, column=0, sticky="w", pady=8, padx=10)
-    momEntry = tb.Entry(container)
-    momEntry.grid(row=2, column=1, sticky="ew", pady=8, padx=10)
+    # --- Mother and Father input entry blocks completely removed from here ---
 
-    tb.Label(container, text="Father's Name: ", anchor="w").grid(row=3, column=0, sticky="w", pady=8, padx=10)
-    dadEntry = tb.Entry(container)
-    dadEntry.grid(row=3, column=1, sticky="ew", pady=8, padx=10)
-
-    tb.Label(container, text="Type of Error: ", anchor="w").grid(row=4, column=0, sticky="w", pady=8, padx=10)
+    # Row 2 (Shifted up): Type of Error
+    tb.Label(container, text="Type of Error: ", anchor="w").grid(row=2, column=0, sticky="w", pady=8, padx=10)
     birth_errorType = tb.Combobox(container, values=["Date of Birth", "Sex", "Place of Birth", "Father Details", "Mother Details", "Type of Birth", "Nationality","Birth Order", "Other (Specify in Explanations)"], state="readonly")
-    birth_errorType.grid(row=4, column=1, sticky="ew", pady=8, padx=10)
+    birth_errorType.grid(row=2, column=1, sticky="ew", pady=8, padx=10)
 
-    tb.Label(container, text="Original Value: ", anchor="w").grid(row=5, column=0, sticky="w", pady=8, padx=10)
+    # Row 3 (Shifted up): Original Value
+    tb.Label(container, text="Original Value: ", anchor="w").grid(row=3, column=0, sticky="w", pady=8, padx=10)
     borigEntry = tb.Entry(container)
-    borigEntry.grid(row=5, column=1, sticky="ew", pady=8, padx=10)
+    borigEntry.grid(row=3, column=1, sticky="ew", pady=8, padx=10)
 
-    tb.Label(container, text="Revised Value: ", anchor="w").grid(row=6, column=0, sticky="w", pady=8, padx=10)
+    # Row 4 (Shifted up): Revised Value
+    tb.Label(container, text="Revised Value: ", anchor="w").grid(row=4, column=0, sticky="w", pady=8, padx=10)
     bnewEntry = tb.Entry(container)
-    bnewEntry.grid(row=6, column=1, sticky="ew", pady=8, padx=10)
+    bnewEntry.grid(row=4, column=1, sticky="ew", pady=8, padx=10)
 
-    tb.Label(container, text="Explanation: ", anchor="w").grid(row=7, column=0, sticky="w", pady=8, padx=10)
+    # Row 5 (Shifted up): Explanation
+    tb.Label(container, text="Explanation: ", anchor="w").grid(row=5, column=0, sticky="w", pady=8, padx=10)
     bexplain = tb.Entry(container)
-    bexplain.grid(row=7, column=1, sticky="ew", pady=8, padx=10)
+    bexplain.grid(row=5, column=1, sticky="ew", pady=8, padx=10)
 
+    # Row 6 (Shifted up): Buttons Frame
     btn_frame = tb.Frame(container)
-    btn_frame.grid(row=8, column=0, columnspan=2, pady=25)
+    btn_frame.grid(row=6, column=0, columnspan=2, pady=25)
 
     btn_sub = LiftedRoundedButton(btn_frame, text="Submit Entry", image=None, command=birth_confirm, variant="primary", width=160, height=45)
     btn_sub.pack(side=LEFT, padx=10)
 
     btn_can = LiftedRoundedButton(btn_frame, text="Cancel", image=None, command=lambda: navigate_to(entry_system_screen), variant="default", width=160, height=45)
     btn_can.pack(side=LEFT, padx=10)
-
+    
 def death_cert_screen():
     global death_regEntry, death_nameEntry, death_errorType, origEntry, newEntry, explain
     container = tb.Frame(content_frame, padding=30)
