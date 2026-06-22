@@ -921,7 +921,7 @@ def verify_user_n_passcode():
             return
         else:
             # Password is wrong
-            login_error_var.set("Wrong Password")
+            login_error_var.set("User not found")
             return
         
     # SCENARIO 3: Employee login by email (fallback if username doesn't match)
@@ -1010,17 +1010,43 @@ def add_account():
         signup_error_var.set("Some fields are blank. please fill them all")
         return
     
-    # VALIDATION 2: Check that passwords match
+    # VALIDATION 2: Check if certain conditions are met with creating password
+    if len(new_password) < 8: #Validates the password's length
+        signup_error_var.set("Invalid Password.")
+        return
+        
+    #Validates the password to contains special character/s
+    special_chars = "@#$%"
+    if not any(char in new_password for char in special_chars):
+        signup_error_var.set("Invalid Password.")
+        return
+        
+    #Validates the password to contain digit/s
+    if not any(char.isdigit() for char in new_password):
+        signup_error_var.set("Invalid Password.")
+        return
+        
+    #Validates the password to have Capital letter/s
+    if not any(char.isupper() for char in new_password):
+        signup_error_var.set("Invalid Password.")
+        return
+
+    #Validates the password to have small letter/s
+    if not any(char.islower() for char in new_password):
+        signup_error_var.set("Invalid Password.")
+        return
+
+    # VALIDATION 3: Check that passwords match
     if new_password != confirm_password:
         signup_error_var.set("Mismatched Passwords, try again")
         return
         
-    # VALIDATION 3: Check that username is not 'admin' (reserved)
+    # VALIDATION 4: Check that username is not 'admin' (reserved)
     if new_username.lower() == "admin":
         signup_error_var.set("Username 'admin' is reserved.")
         return
     
-    # VALIDATION 4: Check that email and username is not already registered
+    # VALIDATION 5: Check that email and username is not already registered
     for employee_id, data in account_database.items():
         if new_email == data.get("email"):
             signup_error_var.set("Email already exists.")
@@ -1154,6 +1180,32 @@ def finalize_password_override(target_user):
         # Get the new passwords from the form
         pwd1 = reset_new_password_var.get().strip()
         pwd2 = reset_confirm_password_var.get().strip()
+
+        #Validates the password's length
+        if len(pwd1) < 8:
+            forget_error_var.set("Invalid Password.")
+            return
+        
+        #Validates the password to contains special character/s
+        special_chars = "@#$%"
+        if not any(char in pwd1 for char in special_chars):
+            forget_error_var.set("Invalid Password.")
+            return
+        
+        #Validates the password to contain digit/s
+        if not any(char.isdigit() for char in pwd1):
+            forget_error_var.set("Invalid Password.")
+            return
+        
+        #Validates the password to have Capital letter/s
+        if not any(char.isupper() for char in pwd1):
+            forget_error_var.set("Invalid Password.")
+            return
+
+        #Validates the password to have small letter/s
+        if not any(char.islower() for char in pwd1):
+            forget_error_var.set("Invalid Password.")
+            return
 
         # Validate that both password fields are filled
         if not pwd1 or not pwd2:
