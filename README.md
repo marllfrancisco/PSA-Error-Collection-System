@@ -1,305 +1,226 @@
-# PSA-Error-Collection-System
+# PSA Error Collection System
 
-# About the project
-
-# Features
-
-# Authors
-
-# How to Navigate?
-
-and such 
-
-[ feel free to edit this ]
-
-----------------------------
-# GUIDE TO MAKE PULL REQUEST 
-[delete this part later]
-
-## How to sync from github version to your local version
-Since 1 groupname made changes, lets sync it to our local version
-Also, this added guide must be synced in your local repository also
-
-From google:
-To sync a GitHub version to your local version in Visual Studio Code (VS Code), you can click the "Sync Changes" button in the Source Control panel. This action automatically runs a git pull followed by a git push to synchronize both environments.
-
-## Changes vs Staged Changes in VS Code
-
-Think of Git as having **3 areas**:
-
-### 1. Working Directory (Changes)
-
-These are files you've edited but Git is only noticing them.
-
-```
-Changes
- ├─ birth_table.sql
- ├─ person_table.sql
- └─ README.md
-```
-
-Nothing is prepared for a commit yet.
-
-Example:
-
-* You modify `person_table.sql`
-* VS Code shows it under **Changes**
-* Git knows it changed, but it won't be included in the next commit unless staged
+A desktop-based database management system designed to streamline the identification, correction, and auditing of discrepancies in Philippine Statistics Authority (PSA) civil registry records.
 
 ---
 
-### 2. Staging Area (Staged Changes)
+## 📖 About the Project
 
-When you click the **+** button beside a file, you tell Git:
+The PSA Error Collection System is a database-driven application developed to assist PSA offices in managing discrepancies found between physical certificates and digital records.
 
-> "Include this file in my next commit."
+Instead of recording corrections manually in spreadsheets, the system centralizes discrepancy reports, records every modification through an audit log, and maintains historical records for accountability.
 
-```
-Staged Changes
- ├─ person_table.sql
- └─ README.md
-```
-
-Now those files are ready to be committed.
+This project was developed as a partial course requirement for COMP 20093 - Infomation Management at Polytechnic University
+of the Philippines - Sta. Mesa.
 
 ---
 
-### 3. Commit
+## 🎯 Objectives
 
-Enter a message:
-- a whol but short description of what you changed
-
-```
-Example:
-Added foreign key constraints
-```
-
-and clicking **Commit**, Git creates a snapshot containing only the staged files.
+- Eliminate manual Excel-based error tracking.
+- Centralize discrepancy reports.
+- Record every modification made to registry records.
+- Improve traceability through audit logging.
+- Reduce communication delays between satellite offices and the central office.
 
 ---
 
-### Example
+## ✨ Features
 
-Suppose you changed:
+### User Management
+- Employee login
+- Password authentication
+- Role-based access (admin, regular employee)
+- Password reset via OTP
+- Employee account management (create, update)
+- Employee activity logging
+- Account creation (admin only)
 
-```
-person.sql
-birth.sql
-README.md
-```
+### Discrepancy Management
+- Create discrepancy reports
+- Update report status
+- View pending and resolved reports
 
-But you only want to commit `person.sql`.
+### Audit Logging
+- Record original values
+- Record revised values
+- Record modified field
+- Record employee responsible
+- Record modification timestamp
 
-Stage only:
+### Certificate Management
+- Birth Certificates
+- Marriage Certificates
+- Death Certificates
 
-```
-person.sql
-```
+### Database Features
+- MySQL relational database
+- Foreign key constraints
+- Audit log implementation
 
-Result:
-
-```
-Staged Changes
- └─ person.sql
-
-Changes
- ├─ birth.sql
- └─ README.md
-```
-
-When you commit, only `person.sql` goes into that commit.
+### Accesibility Settings
+- Font size adjustment
+- Light, dark, and slate high contrast mode themes
+- Tabular rows font size adjustment
 
 ---
 
+## 🖥 Technologies Used
 
-# NOW, THIS IS FOR PULLING / PUSHING FOR OUR GROUP
- ## Important Rule
-> Never work directly on `main` branch.
+### Programming Language
+- Python 3
 
-## IF First Time Only
+### GUI
+- Tkinter
+- ttkbootstrap
 
-Open VSC, and open Terminal
+### Database
+- MySQL
 
-Then,
-Clone repository:
+### IDE
+- Visual Studio Code
+
+### Version Control
+- Git
+- GitHub
+
+---
+
+## 📂 Project Structure
+
+```
+PSA-Error-Collection-System/
+│
+├── SourceCodes/
+│   ├── images/
+│   ├── Ecorrect.sql
+│   ├── ErrorCollectionCSV.py
+│   ├── employee_data.csv
+│   ├── employee_logs.json
+│   └── accounts.json
+│
+├── README.md
+└── LICENSE
+```
+
+---
+
+## 🗃 Database Design
+
+Main Entities
+
+- Person
+- Employee_Account
+- Employee_Account_Logs
+- Registry Number
+- Birth_Certificate
+- Marriage_Certificate
+- Death_Certificate
+- Discrepancy_Report
+- Discrepancy_Report_Audit
+
+The database follows Third Normal Form (3NF) and enforces referential integrity using foreign keys.
+
+---
+
+## 🚀 Installation
+
+### Clone the repository
 
 ```bash
-git clone <repo-url link>
+git clone https://github.com/<username>/PSA-Error-Collection-System.git
 ```
 
-Open in VS Code.
-
----
-
-## Before Starting Any New Task
-
-### Step 1: Pull Latest Main
-
-Open Terminal:
+### Install dependencies
 
 ```bash
-git checkout main
-git pull origin main
+pip install ttkbootstrap mysql-connector-python
 ```
 
-This ensures you are starting from the NEWEST version. 
-why? because one of our groupmates made changes, u must sync with ur local version
+### Import the database
+
+Open MySQL Workbench and execute
+
+```
+Ecorrect.sql
+```
 
 ---
 
-### Step 2: Create Branch
-
-Use a descriptive name.
-
-Examples:
+## ▶ Running the Program
 
 ```bash
-git checkout -b feature-birth-records
-```
-
-or
-
-```bash
-git checkout -b fix-import-errors
-```
-
-or
-
-```bash
-git checkout -b feature-person-table
-```
-
-The `-b` means:
-
-> Create branch and switch to it.
-
----
-
-### Step 3: Verify Branch
-
-In VS Code:
-
-Bottom-left corner should show:
-
-```
-feature-birth-records
-```
-
-instead of
-
-```
-main
+python ErrorCollectionCSV.py
 ```
 
 ---
 
-### Step 4: Make Changes
+## 📸 Screenshots
 
-Edit files normally.
+### Login
 
----
+![login](/Screenshots/login.png)
 
-### Step 5: Stage Files
+### Register
 
-Source Control tab:
+![register](/Screenshots/register.png)
 
-* Click **+** beside changed files
-* Files move to **Staged Changes**
+### OTP Verification
 
----
+![otp_verification](/Screenshots/otp.png)
 
-### Step 6: Commit
+### Dashboard
 
-Type message:
+#### Admin Dashboard
 
-```
-Added birth certificate table
-```
+![admin_dashboard](/Screenshots/adminhome.png)
 
-Click **Commit**.
+#### Employee Dashboard
 
----
+![employee_dashboard](/Screenshots/emphome.png)
 
-### Step 7: Push Branch
+### Discrepancy Desk
 
-Click **Publish Branch**
+![discrepancy_desk](/Screenshots/entry.png)
 
-or:
+### Discrepancy Details
 
-```bash
-git push -u origin feature-birth-records
-```
+![discrepancy_details](/Screenshots/entrydeets.png)
 
-Only needed once per branch.
+### Audit Logs
 
----
+![audit_logs](/Screenshots/auditlog.png)
 
-### Step 8: Create Pull Request
+### Employee Activity Logs
 
-GitHub usually shows:
+![employee_activity_logs](/Screenshots/employeelogs.png)
 
-```
-Compare & Pull Request 
-```
+### Token Request
 
-Click it.
+![token_request](/Screenshots/tokenrequests.png)
 
-Add description.
+### Settings
 
-Submit.
+![settings](/Screenshots/settings.png)
 
 ---
 
-### Step 9: Wait for Review
+## 👥 Authors
 
-Do **not** merge yourself (unless assigned).
+Biando, Sofia Ela
 
-The repository owner reviews and merges.
-Your changes must be reviewed, before merging it to main
-Because what if your code has some fatal error for the system
-then, it will break the whole system, and we have to fix it immediately, 
-which is a waste of time for everyone
+Concepcion, Ramcel Aaron
+
+Daitol, Michael Angelo
+
+Francisco, Marl Louie T.
+
+Pangilinan, Ezekiel
 
 ---
 
-## THIS PART IS FOR PEOPLE WHO ARE NOT COMFORTABLE WITH TERMINAL
-## Easiest VS Code Method (No Terminal)
+## 📄 License
 
-1. Click current branch name in bottom-left.
-2. Select **Create New Branch**.
-3. Enter:
+This project is intended for academic purposes only.
 
-```
-feature-birth-records
-```
-
-4. Press Enter.
-5. VS Code automatically switches to the new branch.
-6. Make changes.
-7. Commit.
-8. Click **Publish Branch**.
-9. Open Pull Request.
-
-This is probably the easiest process for classmates who aren't comfortable with Git commands.
-
-### Team Rule
-
-Every task = new branch.
-
-Good:
-
-```
-feature-person-table
-feature-registry-import
-fix-foreign-key
-fix-sql-errors
-```
-
-Bad:
-
-```
-mybranch
-test
-newbranch
-branch1
-```
+Consented data is used throughout the repository. No actual PSA records are included.

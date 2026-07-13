@@ -1,3 +1,13 @@
+# Copyright (c) 2026  
+# Biando, Sofia Ela
+# Concepcion, Ramcel Aaron
+# Daitol, Michael Angelo
+# Francisco, Marl Louie T.
+# Pangilinan, Ezekiel
+# 
+# License: Apache 2.0
+#
+
 # ==========================================
 # PSA ERROR COLLECTION SYSTEM
 # ==========================================
