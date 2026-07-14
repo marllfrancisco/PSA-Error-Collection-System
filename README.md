@@ -1,4 +1,5 @@
 # PSA Error Collection System
+[![DOI](https://zenodo.org/badge/1253352528.svg)](https://doi.org/10.5281/zenodo.21358094)
 
 A desktop-based database management system designed to streamline the identification, correction, and auditing of discrepancies in Philippine Statistics Authority (PSA) civil registry records.
 
