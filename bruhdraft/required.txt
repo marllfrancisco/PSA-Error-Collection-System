@@ -1,2 +1,0 @@
-ttkbootstrap
-mysql-connector-python
